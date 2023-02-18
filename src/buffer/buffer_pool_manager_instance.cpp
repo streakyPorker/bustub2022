@@ -41,7 +41,7 @@ BufferPoolManagerInstance::~BufferPoolManagerInstance() {
   delete page_table_;
   delete replacer_;
 }
-
+// 来啦！
 auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * { return nullptr; }
 
 auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * { return nullptr; }
