@@ -17,6 +17,7 @@
 #include <utility>
 
 #include "container/hash/extendible_hash_table.h"
+#include "murmur3/MurmurHash3.h"
 #include "storage/page/page.h"
 
 namespace bustub {
@@ -66,6 +67,8 @@ auto ExtendibleHashTable<K, V>::GetNumBucketsInternal() const -> int {
 
 template <typename K, typename V>
 auto ExtendibleHashTable<K, V>::Find(const K &key, V &value) -> bool {
+  auto bucket_idx = IndexOf(key);
+  dir_[bucket_idx]->Find(key, value);
   UNREACHABLE("not implemented");
 }
 
