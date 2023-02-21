@@ -42,6 +42,15 @@ std::vector<std::string> GenerateNRandomString(int n) {
   return rand_strs;
 }
 
+TEST(LzyTest, LzyRWLockTest) {
+  ReaderWriterLatch latch;
+  latch.RLock();
+  LOG_INFO("r acquired");
+  latch.RUnlock();
+  latch.WLock();
+  LOG_INFO("w acquired");
+}
+
 TEST(StarterTest, TrieNodeInsertTest) {
   // Test Insert
   //  When same key is inserted twice, insert should return nullptr
