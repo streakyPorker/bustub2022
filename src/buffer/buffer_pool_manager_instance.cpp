@@ -42,18 +42,113 @@ BufferPoolManagerInstance::~BufferPoolManagerInstance() {
   delete replacer_;
 }
 // 来啦！
-auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * { return nullptr; }
+auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
+  std::scoped_lock<std::mutex> lock(latch_);
+  return NewPgImpInternal(page_id);
+}
 
-auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * { return nullptr; }
+auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
+  BUSTUB_ASSERT(page_id != INVALID_PAGE_ID, "invalid page id");
+  std::scoped_lock<std::mutex> lock(latch_);
+  frame_id_t frame_id;
+  Page *page;
+  if (page_table_->Find(page_id, frame_id)) {
+    page = pages_ + frame_id;
+    page->pin_count_++;
+  } else if (replacer_->Evict(&frame_id)) {
+    page = pages_ + frame_id;
+    page->page_id_ = page_id;
+    if (page->IsDirty()) {
+      disk_manager_->WritePage(page->GetPageId(), page->GetData());
+      page->is_dirty_ = false;
+    }
+    disk_manager_->ReadPage(page_id, page->GetData());
+    page_table_->Insert(page_id, frame_id);
+  } else {
+    return nullptr;
+  }
+  PinPageInternal(page, frame_id);
+  return page;
+}
 
-auto BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) -> bool { return false; }
+auto BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) -> bool {
+  BUSTUB_ASSERT(page_id != INVALID_PAGE_ID, "invalid page id");
+  std::scoped_lock<std::mutex> lock(latch_);
+  return UnpinPgImpInternal(page_id, is_dirty);
+}
 
-auto BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) -> bool { return false; }
+auto BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) -> bool {
+  std::scoped_lock<std::mutex> lock(latch_);
+  frame_id_t frame_id;
+  Page *page;
+  if (page_table_->Find(page_id, frame_id)) {
+    page = &pages_[frame_id];
+    disk_manager_->WritePage(page_id, page->GetData());
+    page->is_dirty_ = false;
+    return true;
+  }
+  return false;
+}
 
-void BufferPoolManagerInstance::FlushAllPgsImp() {}
+void BufferPoolManagerInstance::FlushAllPgsImp() {
+  Page* page;
+  for(size_t i=0;i<pool_size_;i++){
+    page = &pages_[i];
+    if(page->GetPageId()!=INVALID_PAGE_ID){
+      disk_manager_->WritePage(page->GetPageId(),page->GetData());
+      page->is_dirty_ = false;
+    }
+  }
+}
 
 auto BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) -> bool { return false; }
 
 auto BufferPoolManagerInstance::AllocatePage() -> page_id_t { return next_page_id_++; }
+
+auto BufferPoolManagerInstance::NewPgImpInternal(page_id_t *page_id) -> Page * {
+  frame_id_t frame_id;
+  if (!free_list_.empty()) {
+    frame_id = free_list_.front();
+    free_list_.pop_front();
+  } else if (!replacer_->Evict(&frame_id)) {
+    return nullptr;  // can`t get free page
+  }
+  Page *page = pages_ + frame_id;
+
+  // clean step
+  if (page->IsDirty()) {
+    disk_manager_->WritePage(page->GetPageId(), page->GetData());
+    page->is_dirty_ = false;
+  }
+  page->ResetMemory();
+
+  page_id_t new_page_id = AllocatePage();
+  *page_id = new_page_id;
+  page->page_id_ = new_page_id;
+  PinPageInternal(page, frame_id);
+  page_table_->Insert(new_page_id, frame_id);
+  return page;
+}
+auto BufferPoolManagerInstance::PinPageInternal(Page *page, frame_id_t frame_id) -> int {
+  replacer_->RecordAccess(frame_id);
+  replacer_->SetEvictable(frame_id, false);
+  return ++page->pin_count_;
+}
+auto BufferPoolManagerInstance::UnpinPgImpInternal(page_id_t page_id, bool is_dirty) -> bool {
+  frame_id_t frame_id;
+  Page *page;
+  if (page_table_->Find(page_id, frame_id)) {
+    page = &pages_[frame_id];
+    page->is_dirty_ = is_dirty;
+    if (page->GetPinCount() > 0) {
+      --page->pin_count_;
+      if (page->pin_count_ == 0) {
+        replacer_->SetEvictable(frame_id, true);
+      }
+      return true;
+    }
+  }
+  return false;
+}
 
 }  // namespace bustub

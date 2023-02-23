@@ -52,7 +52,7 @@ class LRUKReplacer {
    *
    * @brief Destroys the LRUReplacer.
    */
-  ~LRUKReplacer() = default;
+  ~LRUKReplacer();
 
   /**
    * TODO(P1): Add implementation
@@ -133,12 +133,85 @@ class LRUKReplacer {
   auto Size() -> size_t;
 
  private:
-  // TODO(student): implement me! You can replace these member variables as you like.
-  // Remove maybe_unused if you start using them.
-  [[maybe_unused]] size_t current_timestamp_{0};
-  [[maybe_unused]] size_t curr_size_{0};
-  [[maybe_unused]] size_t replacer_size_;
-  [[maybe_unused]] size_t k_;
+  struct BiListNode {
+    BiListNode *prev{nullptr};
+    BiListNode *next{nullptr};
+    bool evictable{true};
+    frame_id_t frame_id_;
+    std::list<size_t> access_records_;
+    explicit BiListNode(size_t k_,frame_id_t frame_id,size_t init_ts) {
+      access_records_.resize(k_ - 1, SIZE_MAX);
+      access_records_.push_back(init_ts);
+      frame_id_ =frame_id;
+    }
+    auto access(size_t ts) -> size_t {
+      access_records_.push_back(ts);
+      access_records_.pop_front();
+      return access_records_.front();
+    }
+
+    auto front() const -> size_t { return access_records_.front(); }
+    auto back() const -> size_t { return access_records_.back(); }
+
+    auto better(const BiListNode *another) -> bool {
+      return (back() - front()) <= (another->back() - another->front());
+    }
+  };
+  struct BiList {
+    BiListNode *head_{nullptr};
+    BiListNode *tail_{nullptr};
+    void push(BiListNode *node) {
+      if (head_ == nullptr) {
+        head_ = tail_ = node;
+      } else {
+        tail_->next = node;
+        node->prev = tail_;
+        tail_ = node;
+      }
+    }
+
+    void remove(BiListNode *node) {
+      if (head_ == nullptr || head_ == tail_) {  // 0 or 1 node
+        head_ = tail_ = nullptr;
+      } else {
+        if (head_ == node) {
+          head_ = head_->next;
+          node->next->prev = node->prev;
+        } else if (tail_ == node) {
+          tail_ = tail_->prev;
+          tail_->next = node->next;
+        } else {
+          node->prev->next = node->next;
+          node->next->prev = node->prev;
+        }
+      }
+      node->prev = node->next = nullptr;
+    }
+
+    auto peek() -> BiListNode * { return head_; }
+
+    auto pop() -> BiListNode * {
+      auto rst = head_;
+      head_ = head_->next;
+      if (head_ == nullptr) {
+        tail_ = nullptr;
+      }
+      return rst;
+    }
+  };
+
+
+  void InsertToCacheList(BiListNode*iter,BiListNode* node);
+
+
+  size_t current_timestamp_{0};
+  size_t curr_size_{0};
+  size_t replacer_size_;
+  size_t k_;
+  BiList cache_list_;
+  BiList non_cache_list_;
+  std::unordered_map<frame_id_t, BiListNode *> cache_map_;
+  std::unordered_map<frame_id_t, BiListNode *> non_cache_map_;
   std::mutex latch_;
 };
 

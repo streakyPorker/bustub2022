@@ -159,6 +159,7 @@ class ExtendibleHashTable : public HashTable<K, V> {
 
    private:
     // TODO(student): You may add additional private members and helper functions
+
     size_t size_;
     int depth_;
     std::list<std::pair<K, V>> list_;
@@ -179,9 +180,20 @@ class ExtendibleHashTable : public HashTable<K, V> {
 
   /**
    * @brief Redistribute the kv pairs in a full bucket.
-   * @param bucket The bucket to be redistributed.
+   * @param bucket
+   * @param bucket_idx
+   * @return
    */
-  auto RedistributeBucket(std::shared_ptr<Bucket> bucket) -> void;
+  auto RedistributeBucket(std::shared_ptr<Bucket> bucket, size_t bucket_idx) -> void;
+
+  /** self def func start **/
+
+  /**
+   * @brief 只是将所有bucket指针再插入一次并incr global_depth来完成扩容
+   */
+  void ExpandHashtable();
+
+  /** self def func end **/
 
   /*****************************************************************
    * Must acquire latch_ first before calling the below functions. *
