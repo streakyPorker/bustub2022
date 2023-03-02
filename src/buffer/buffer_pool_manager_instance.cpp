@@ -50,7 +50,14 @@ auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
 
   // clean step
   if (page->IsDirty()) {
+
+    // expensive disk write/read should release the latch_
+    page->RLatch();
+    latch_.unlock();
     disk_manager_->WritePage(page->GetPageId(), page->GetData());
+    page->RUnlatch();
+    latch_.lock();
+
     page->is_dirty_ = false;
   }
   BUSTUB_ASSERT(page->pin_count_ == 0, "invalid pin count");
@@ -77,12 +84,26 @@ auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
   } else if (replacer_->Evict(&frame_id)) {
     page = pages_ + frame_id;
     if (page->IsDirty()) {
+
+      // expensive disk write/read should release the latch_
+      page->RLatch();
+      latch_.unlock();
       disk_manager_->WritePage(page->GetPageId(), page->GetData());
+      page->RUnlatch();
+      latch_.lock();
+
       page->is_dirty_ = false;
     }
 
     page->page_id_ = page_id;
+
+    // expensive disk write/read should release the latch_
+    page->WLatch();
+    latch_.unlock();
     disk_manager_->ReadPage(page_id, page->GetData());
+    page->WUnlatch();
+    latch_.lock();
+
     page_table_->Insert(page_id, frame_id);
   } else {
     return nullptr;
@@ -116,7 +137,14 @@ auto BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) -> bool {
   Page *page;
   if (page_table_->Find(page_id, frame_id)) {
     page = &pages_[frame_id];
+
+    // expensive disk write/read should release the latch_
+    page->RLatch();
+    latch_.unlock();
     disk_manager_->WritePage(page_id, page->GetData());
+    page->RUnlatch();
+    latch_.lock();
+
     page->is_dirty_ = false;
     return true;
   }
@@ -128,7 +156,12 @@ void BufferPoolManagerInstance::FlushAllPgsImp() {
   for (size_t i = 0; i < pool_size_; i++) {
     page = &pages_[i];
     if (page->GetPageId() != INVALID_PAGE_ID) {
+      // expensive disk write/read should release the latch_
+      page->RLatch();
+      latch_.unlock();
       disk_manager_->WritePage(page->GetPageId(), page->GetData());
+      page->RUnlatch();
+      latch_.lock();
       page->is_dirty_ = false;
     }
   }
