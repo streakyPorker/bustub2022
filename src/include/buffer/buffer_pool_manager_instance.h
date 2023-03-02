@@ -177,10 +177,8 @@ class BufferPoolManagerInstance : public BufferPoolManager {
   }
 
   // TODO(student): You may add additional private members and helper functions
-  auto NewPgImpInternal(page_id_t *page_id) -> Page *;
 
   auto PinPageInternal(Page *page,frame_id_t frame_id) -> int;
 
-  auto UnpinPgImpInternal(page_id_t page_id, bool is_dirty) -> bool;
 };
 }  // namespace bustub
