@@ -50,19 +50,16 @@ auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
 
   // clean step
   if (page->IsDirty()) {
-
     // expensive disk write/read should release the latch_
-    page->RLatch();
     latch_.unlock();
     disk_manager_->WritePage(page->GetPageId(), page->GetData());
-    page->RUnlatch();
     latch_.lock();
 
     page->is_dirty_ = false;
   }
   BUSTUB_ASSERT(page->pin_count_ == 0, "invalid pin count");
   page->ResetMemory();
-  if(page->page_id_!=INVALID_PAGE_ID){
+  if (page->page_id_ != INVALID_PAGE_ID) {
     page_table_->Remove(page->page_id_);  // remove old page entry
   }
   page_id_t new_page_id = AllocatePage();
@@ -84,12 +81,9 @@ auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
   } else if (replacer_->Evict(&frame_id)) {
     page = pages_ + frame_id;
     if (page->IsDirty()) {
-
       // expensive disk write/read should release the latch_
-      page->RLatch();
       latch_.unlock();
       disk_manager_->WritePage(page->GetPageId(), page->GetData());
-      page->RUnlatch();
       latch_.lock();
 
       page->is_dirty_ = false;
@@ -98,10 +92,8 @@ auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
     page->page_id_ = page_id;
 
     // expensive disk write/read should release the latch_
-    page->WLatch();
     latch_.unlock();
     disk_manager_->ReadPage(page_id, page->GetData());
-    page->WUnlatch();
     latch_.lock();
 
     page_table_->Insert(page_id, frame_id);
@@ -139,10 +131,8 @@ auto BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) -> bool {
     page = &pages_[frame_id];
 
     // expensive disk write/read should release the latch_
-    page->RLatch();
     latch_.unlock();
     disk_manager_->WritePage(page_id, page->GetData());
-    page->RUnlatch();
     latch_.lock();
 
     page->is_dirty_ = false;
@@ -157,10 +147,8 @@ void BufferPoolManagerInstance::FlushAllPgsImp() {
     page = &pages_[i];
     if (page->GetPageId() != INVALID_PAGE_ID) {
       // expensive disk write/read should release the latch_
-      page->RLatch();
       latch_.unlock();
       disk_manager_->WritePage(page->GetPageId(), page->GetData());
-      page->RUnlatch();
       latch_.lock();
       page->is_dirty_ = false;
     }
