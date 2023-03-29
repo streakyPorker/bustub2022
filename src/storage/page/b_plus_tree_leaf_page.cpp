@@ -51,7 +51,7 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::SetNextPageId(page_id_t next_page_id) { this->n
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_LEAF_PAGE_TYPE::KeyAt(int index) const -> KeyType {
-  BUSTUB_ASSERT(index < this->GetSize(), "invalid query : index out of bound");
+  BUSTUB_ASSERT(index >= 0 && index <= this->GetSize(), "invalid query : index out of bound");
   // replace with your own code
   KeyType key{};
   key = array_[index].first;

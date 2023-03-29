@@ -15,13 +15,28 @@ BPLUSTREE_TYPE::BPlusTree(std::string name, BufferPoolManager *buffer_pool_manag
       buffer_pool_manager_(buffer_pool_manager),
       comparator_(comparator),
       leaf_max_size_(leaf_max_size),
-      internal_max_size_(internal_max_size) {}
+      internal_max_size_(internal_max_size) {
+  Page *page = buffer_pool_manager_->NewPage(&root_page_id_);
+  BUSTUB_ASSERT(root_page_id_ != INVALID_PAGE_ID, "create BPlusTree failed : can`t allocate page");
+
+  auto *root_page = new (page->GetData()) InternalPage();
+  root_page->Init(root_page_id_);
+  UpdateRootPageId();
+}
 
 /*
  * Helper function to decide whether current b+tree is empty
  */
 INDEX_TEMPLATE_ARGUMENTS
-auto BPLUSTREE_TYPE::IsEmpty() const -> bool { return true; }
+auto BPLUSTREE_TYPE::IsEmpty() const -> bool {
+  Page *page = buffer_pool_manager_->FetchPage(root_page_id_);
+  if (page == nullptr || page->GetData() == nullptr) {
+    return true;
+  }
+  auto root_node = reinterpret_cast<InternalPage *>(page->GetData());
+  BUSTUB_ASSERT(root_node->IsRootPage(), "cant recognize root_node");
+  return static_cast<bool>(root_node->GetSize() == 0);
+}
 /*****************************************************************************
  * SEARCH
  *****************************************************************************/
@@ -32,6 +47,15 @@ auto BPLUSTREE_TYPE::IsEmpty() const -> bool { return true; }
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result, Transaction *transaction) -> bool {
+  Page *page = buffer_pool_manager_->FetchPage(root_page_id_);
+  if(page == nullptr|| page->GetData()== nullptr){
+    return false;
+  }
+  auto node = reinterpret_cast<InternalPage *>(page->GetData());
+  // seq scan first
+  for(int i=0;i<node->GetSize();i++){
+
+  }
   return false;
 }
 
@@ -99,7 +123,8 @@ auto BPLUSTREE_TYPE::GetRootPageId() -> page_id_t { return 0; }
 /*****************************************************************************
  * UTILITIES AND DEBUG
  *****************************************************************************/
-/*
+
+/**
  * Update/Insert root page id in header page(where page_id = 0, header_page is
  * defined under include/page/header_page.h)
  * Call this method everytime root page id is changed.

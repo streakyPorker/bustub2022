@@ -38,7 +38,7 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Init(page_id_t page_id, page_id_t parent_id
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::KeyAt(int index) const -> KeyType {
-  BUSTUB_ASSERT(index < this->GetSize(), "invalid query : index out of bound");
+  BUSTUB_ASSERT(index >= 0 && index < this->GetSize(), "invalid query : index out of bound");
   KeyType key{};
   // ignore the index 0
   if (index != 0) {
@@ -49,7 +49,7 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::KeyAt(int index) const -> KeyType {
 
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetKeyAt(int index, const KeyType &key) {
-  BUSTUB_ASSERT(index < this->GetMaxSize(), "invalid modification : index out of bound");
+  BUSTUB_ASSERT(index >= 0 && index < this->GetMaxSize(), "invalid modification : index out of bound");
   if (index != 0) {
     array_[index].first = key;
   }
@@ -61,7 +61,7 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetKeyAt(int index, const KeyType &key) {
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueAt(int index) const -> ValueType {
-  BUSTUB_ASSERT(index < this->GetSize(), "invalid query : index out of bound");
+  BUSTUB_ASSERT(index >= 0 && index < this->GetSize(), "invalid query : index out of bound");
   return array_[index].second;
 }
 

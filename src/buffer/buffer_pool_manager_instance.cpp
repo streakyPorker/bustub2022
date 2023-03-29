@@ -13,6 +13,7 @@
 #include "buffer/buffer_pool_manager_instance.h"
 
 #include "common/exception.h"
+#include "common/logger.h"
 #include "common/macros.h"
 
 namespace bustub {
@@ -44,6 +45,7 @@ auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
     frame_id = free_list_.front();
     free_list_.pop_front();
   } else if (!replacer_->Evict(&frame_id)) {
+    LOG_WARN("unable to allocate new page");
     return nullptr;  // can`t get free page
   }
   Page *page = pages_ + frame_id;
