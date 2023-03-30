@@ -56,7 +56,6 @@ auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
     latch_.unlock();
     disk_manager_->WritePage(page->GetPageId(), page->GetData());
     latch_.lock();
-
     page->is_dirty_ = false;
   }
   BUSTUB_ASSERT(page->pin_count_ == 0, "invalid pin count");
