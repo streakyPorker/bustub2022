@@ -10,7 +10,7 @@
 //===----------------------------------------------------------------------===//
 #pragma once
 
-#include <queue>
+#include <deque>
 #include <string>
 #include <vector>
 
@@ -86,17 +86,41 @@ class BPlusTree {
    * self def
    */
 
-  auto ParsePageToGeneralTree(page_id_t page_id) const -> BPlusTreePage *;
+  enum class LockStrategy{
+    READ_LOCK,OPTIM_WRITE_LOCK,PESSI_WRITE_LOCK
+  };
 
-  auto SearchToLeaf(BPlusTreePage *root_node, const KeyType &key) const -> LeafPage *;
+  enum class LockType{
+    READ,WRITE
+  };
+
+  enum class SafeType{
+    READ,INSERT,DELETE
+  };
+
+
+
+
+  auto ParsePageToGeneralNode(page_id_t page_id, std::deque<std::pair<LockType,Page*>> &deque,LockType type) -> BPlusTreePage *;
+
+  auto SearchToLeaf(BPlusTreePage *root_node, const KeyType &key, std::deque<std::pair<LockType,Page*>> &deque,LockStrategy strategy,SafeType type) -> LeafPage *;
+
+  void InsertIntoInternalNode(InternalPage *internal, const KeyType &key, const page_id_t &value,
+                              std::deque<std::pair<LockType,Page*>> &deque);
+
+  auto InsertIntoLeafNode(LeafPage *leaf, const KeyType &key, const ValueType &value, std::deque<std::pair<LockType,Page*>> &deque)
+      -> bool;
 
   // member variable
+
   std::string index_name_;
   page_id_t root_page_id_;
   BufferPoolManager *buffer_pool_manager_;
   KeyComparator comparator_;
   int leaf_max_size_;
   int internal_max_size_;
+
+
 };
 
 }  // namespace bustub

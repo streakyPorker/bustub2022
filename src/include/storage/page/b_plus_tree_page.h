@@ -62,6 +62,13 @@ class BPlusTreePage {
 
   void SetLSN(lsn_t lsn = INVALID_LSN);
 
+  inline bool IsSafe(const WType& w_type) {
+    if (w_type == WType::INSERT) {
+      return GetSize() < GetMaxSize();
+    }
+    return GetSize() > GetMinSize();
+  };
+
  private:
   // member variable, attributes that both internal and leaf page share
   IndexPageType page_type_ __attribute__((__unused__));
