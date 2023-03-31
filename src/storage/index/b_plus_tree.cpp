@@ -26,13 +26,13 @@ auto BPLUSTREE_TYPE::IsEmpty() const -> bool {
     return true;
   }
   Page *page = buffer_pool_manager_->FetchPage(root_page_id_);
-  if (page == nullptr || page->GetData() == nullptr) {
+  if (page == nullptr) {
     return true;
   }
   page->RLatch();
   auto node = reinterpret_cast<BPlusTreePage *>(page->GetData());
-  BUSTUB_ASSERT(node != nullptr && node->IsRootPage(), "invalid root");
-  bool rst = node->GetSize() == 0;
+  //  BUSTUB_ASSERT(node->IsRootPage(), "invalid root");
+  bool rst = !node->IsRootPage() || node->GetSize() == 0;
   page->RUnlatch();
   return rst;
 }
@@ -53,7 +53,7 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
   auto node = ParsePageToGeneralNode(root_page_id_, locked_pages, LockType::READ);
   BUSTUB_ASSERT(node != nullptr && node->IsRootPage(), "invalid root page id");
 
-  LeafPage *leaf = SearchToLeaf(node, key, locked_pages, LockStrategy::READ_LOCK,SafeType::READ);
+  LeafPage *leaf = SearchToLeaf(node, key, locked_pages, LockStrategy::READ_LOCK, SafeType::READ);
   if (leaf == nullptr) {
     return false;
   }
@@ -91,46 +91,36 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transaction *transaction) -> bool {
+  // double check to create root node
   if (IsEmpty()) {
-    Page *page = buffer_pool_manager_->NewPage(&root_page_id_);
-    BUSTUB_ASSERT(root_page_id_ != INVALID_PAGE_ID, "bpt creation failed : can`t allocate page");
-    auto root_page = reinterpret_cast<LeafPage *>(page->GetData());
-    root_page->Init(root_page_id_);
-    UpdateRootPageId();  // will unpin the root page
+    std::scoped_lock<std::mutex> lock_scope(latch_);
+    if (IsEmpty()) {
+      Page *page = buffer_pool_manager_->NewPage(&root_page_id_);
+      BUSTUB_ASSERT(root_page_id_ != INVALID_PAGE_ID, "bpt creation failed : can`t allocate page");
+      page->WLatch();
+      auto root_page = reinterpret_cast<LeafPage *>(page->GetData());
+      root_page->Init(root_page_id_);
+      page->WUnlatch();
+      UpdateRootPageId();
+      buffer_pool_manager_->UnpinPage(root_page_id_, true);
+    }
   }
   std::deque<std::pair<LockType, Page *>> locked_pages;
-  auto node = ParsePageToGeneralNode(root_page_id_, locked_pages, LockType::WRITE);
-  BUSTUB_ASSERT(node != nullptr && node->IsRootPage(), "invalid root page id");
-  LeafPage *leaf = SearchToLeaf(node, key, locked_pages, LockStrategy::OPTIM_WRITE_LOCK,SafeType::INSERT);
-  BUSTUB_ASSERT(leaf != nullptr, "internal error:can`t get to leaf");
-  bool need_split = leaf->GetSize() == leaf->GetMaxSize();
-  int l = 0;
-  int r = leaf->GetSize() - 1;
-  int mid;
-  while (l < r) {
-    mid = (l + r) << 1;
-    int rst = comparator_(key, leaf->KeyAt(mid));
-    if (rst == 0) {
-      // might change,since metadata might be edited
-      buffer_pool_manager_->UnpinPage(leaf->GetPageId(), false);
-      return false;
-    }
-    if (rst < 0) {
-      r = mid - 1;
-    } else {
-      l = mid + 1;
-    }
+
+  // optimistic mode first
+  auto node = ParsePageToGeneralNode(root_page_id_, locked_pages, LockType::READ);
+  LeafPage *leaf = SearchToLeaf(node, key, locked_pages, LockStrategy::OPTIM_WRITE_LOCK, SafeType::INSERT);
+
+  if (leaf == nullptr) {
+    // at this time,all lock should be released
+    BUSTUB_ASSERT(locked_pages.empty(), "bpt op failed:unreleased lock");
+    // turn to pessimistic way
+    node = ParsePageToGeneralNode(root_page_id_, locked_pages, LockType::READ);
+    leaf = SearchToLeaf(node, key, locked_pages, LockStrategy::PESSI_WRITE_LOCK, SafeType::INSERT);
   }
-  BUSTUB_ASSERT(l == r, "bs error");
-  if (!need_split) {
-    for (int ri = leaf->GetSize() - 1; ri > l; ri--) {
-      leaf->SetKVAt(ri + 1, leaf->KeyAt(ri), leaf->ValueAt(ri));
-    }
-    leaf->SetKVAt(l + 1, key, value);
-    leaf->IncreaseSize(1);
-  } else {
-    // TODO: implement split logic
-  }
+  BUSTUB_ASSERT(leaf != nullptr, "bpt op failed:internal search error");
+
+  InsertIntoLeafNode(leaf, key, value, locked_pages);
 
   return true;
 }
@@ -407,10 +397,11 @@ auto BPLUSTREE_TYPE::ParsePageToGeneralNode(page_id_t page_id, std::deque<std::p
   deque.emplace_back(type, page);
   return reinterpret_cast<BPlusTreePage *>(page->GetData());
 }
+
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::SearchToLeaf(BPlusTreePage *node, const KeyType &key,
-                                  std::deque<std::pair<LockType, Page *>> &deque, LockStrategy strategy,SafeType type)
-    -> BPlusTree::LeafPage * {
+                                  std::deque<std::pair<LockType, Page *>> &deque, LockStrategy strategy,
+                                  SafeType safe_type) -> BPlusTree::LeafPage * {
   InternalPage *internal = nullptr;
   LeafPage *leaf = nullptr;
   if (node->IsLeafPage()) {
@@ -421,22 +412,23 @@ auto BPLUSTREE_TYPE::SearchToLeaf(BPlusTreePage *node, const KeyType &key,
   int l;
   int r;
   int mid;
+  std::pair<LockType, Page *> lock_pair;
   LockType node_lock_type = strategy != LockStrategy::PESSI_WRITE_LOCK ? LockType::READ : LockType::WRITE;
   while (leaf == nullptr) {
     l = 1;
     r = internal->GetSize() - 1;
     node = nullptr;
-    while (l <= r) {
+    while (l < r) {
       mid = (l + r) << 1;
       if (comparator_(key, internal->KeyAt(mid)) < 0) {
-        // less than the l pos
+        // less than the l pos,reach the boundary
         if (mid <= l) {
           node = ParsePageToGeneralNode(internal->ValueAt(mid), deque, node_lock_type);
           //          buffer_pool_manager_->UnpinPage(internal->GetPageId(), false);
           break;
         }
         r = mid - 1;
-      } else if (mid >= r || comparator_(key, internal->KeyAt(mid + 1)) < 0) {
+      } else if (mid == r || comparator_(key, internal->KeyAt(mid + 1)) < 0) {
         // get to the r or the match pos
         node = ParsePageToGeneralNode(internal->ValueAt(mid), deque, node_lock_type);
         //        buffer_pool_manager_->UnpinPage(internal->GetPageId(), false);
@@ -449,47 +441,70 @@ auto BPLUSTREE_TYPE::SearchToLeaf(BPlusTreePage *node, const KeyType &key,
     // node==nullptr when  key<r and no data is there
     if (node == nullptr) {
       // unlock all the page
-      while (!deque.empty()) {
-        if (deque.front().first == LockType::READ) {
-          deque.front().second->RUnlatch();
-        } else {
-          deque.front().second->WUnlatch();
-        }
-        deque.pop_front();
-      }
+      ClearLockDeque(deque);
       return nullptr;
     }
-    if (node->IsLeafPage()) {
 
-      leaf = reinterpret_cast<LeafPage *>(node);
-      if (strategy == LockStrategy::OPTIM_WRITE_LOCK) {
-        // upgrade the latch to write at optim mode
-        Page *leaf_page = deque.back().second;
-        deque.pop_back();
-        leaf_page->RUnlatch();
-        leaf_page->WLatch();
-        deque.emplace_back(LockType::WRITE,leaf_page);
-
-        if(leaf->IsSafe(type==SafeType::INSERT?WType::INSERT:WType::DELETE)){
-          // unlock all the rlock, start writing
-          while(deque.size()>1){
+    switch (strategy) {
+      case LockStrategy::OPTIM_WRITE_LOCK:
+        if (!node->IsLeafPage()) {  // non-leaf,same as READ_LOCK
+          while (deque.size() > 1) {
+            buffer_pool_manager_->UnpinPage(deque.front().second->GetPageId(), false);
             deque.front().second->RUnlatch();
             deque.pop_front();
           }
-        }else{
-          // release all the lock, return null to start over
-          deque.back().second->WUnlatch();
+        } else {
+          // 1. upgrade the leaf latch to write mode at optim mode
+          // 2. check safe state, return nullptr if failed
+          Page *leaf_page = deque.back().second;
           deque.pop_back();
-          while(!deque.empty()){
-            deque.front().second->RUnlatch();
+          leaf_page->RUnlatch();
+          leaf_page->WLatch();
+          deque.emplace_back(LockType::WRITE, leaf_page);
+
+          if (node->IsSafe(safe_type == SafeType::INSERT ? WType::INSERT : WType::DELETE)) {
+            // unlock all the rlock, start writing
+            while (deque.size() > 1) {
+              buffer_pool_manager_->UnpinPage(deque.front().second->GetPageId(), false);
+              deque.front().second->RUnlatch();
+              deque.pop_front();
+            }
+          } else {
+            // release all the lock, return null to start over
+            buffer_pool_manager_->UnpinPage(deque.back().second->GetPageId(), false);  // no change,no dirty
+            deque.back().second->WUnlatch();
+            deque.pop_back();
+            while (!deque.empty()) {
+              buffer_pool_manager_->UnpinPage(deque.front().second->GetPageId(), false);
+              deque.front().second->RUnlatch();
+              deque.pop_front();
+            }
+            return nullptr;
+          }
+        }
+        break;
+      case LockStrategy::READ_LOCK:  // simply release prev lock
+        while (deque.size() > 1) {
+          buffer_pool_manager_->UnpinPage(deque.front().second->GetPageId(), false);
+          deque.front().second->RUnlatch();
+          deque.pop_front();
+        }
+        break;
+      case LockStrategy::PESSI_WRITE_LOCK:
+        if (node->IsSafe(safe_type == SafeType::INSERT ? WType::INSERT : WType::DELETE)) {
+          // release all prev wlock
+          while (deque.size() > 1) {
+            buffer_pool_manager_->UnpinPage(deque.front().second->GetPageId(), false);
+            deque.front().second->WUnlatch();
             deque.pop_front();
           }
-          return nullptr;
-        }
-      }
+        }  // else hold the lock
+        break;
+    }
 
+    if (node->IsLeafPage()) {
+      leaf = reinterpret_cast<LeafPage *>(node);
     } else {
-      // TODO:impl the internal situation
       internal = reinterpret_cast<InternalPage *>(node);
     }
   }
@@ -504,13 +519,13 @@ auto BPLUSTREE_TYPE::InsertIntoLeafNode(BPlusTree::LeafPage *leaf, const KeyType
   int l = 0;
   int r = leaf->GetSize() - 1;
   int mid;
-  bool need_split = leaf->GetSize() == leaf->GetMaxSize();
-  while (l < r) {
+  bool need_split = leaf->GetSize() == leaf->GetMaxSize();  // TODO: need check
+  while (l <= r) {
     mid = (l + r) << 1;
     int rst = comparator_(key, leaf->KeyAt(mid));
     if (rst == 0) {
       // might change,since metadata might be edited
-      buffer_pool_manager_->UnpinPage(leaf->GetPageId(), false);
+      ClearLockDeque(deque);
       return false;
     }
     if (rst < 0) {
@@ -519,31 +534,39 @@ auto BPLUSTREE_TYPE::InsertIntoLeafNode(BPlusTree::LeafPage *leaf, const KeyType
       l = mid + 1;
     }
   }
-  BUSTUB_ASSERT(l == r, "bs error");
+  int insert_pos = std::min(l, r);
+
   if (!need_split) {
-    for (int ri = leaf->GetSize() - 1; ri > l; ri--) {
+    for (int ri = leaf->GetSize() - 1; ri > insert_pos; ri--) {
       leaf->SetKVAt(ri + 1, leaf->KeyAt(ri), leaf->ValueAt(ri));
     }
-    leaf->SetKVAt(l + 1, key, value);
+    leaf->SetKVAt(insert_pos + 1, key, value);
     leaf->IncreaseSize(1);
   } else {
-    if (leaf->IsRootPage()) {  // need to create the root first
+    // need to create the new root first
+    // no need to double-check, since we have to lock leaf first
+    if (leaf->IsRootPage()) {
+      std::scoped_lock<std::mutex> scoped_lock(latch_);
       Page *page = buffer_pool_manager_->NewPage(&root_page_id_);
       BUSTUB_ASSERT(root_page_id_ != INVALID_PAGE_ID, "bpt op failed : can`t allocate page");
+      page->WLatch();
       auto root_page = reinterpret_cast<InternalPage *>(page->GetData());
       root_page->Init(root_page_id_);
       leaf->SetParentPageId(root_page_id_);
+      page->WUnlatch();
       UpdateRootPageId();  // will unpin the root page
+      buffer_pool_manager_->UnpinPage(root_page_id_, true);
     }
 
     // now root must be an internal page
+    // wlock the new root to proceed
     auto root = reinterpret_cast<InternalPage *>(ParsePageToGeneralNode(root_page_id_, deque, LockType::WRITE));
 
     page_id_t new_leaf_page_id;
     Page *new_leaf_page = buffer_pool_manager_->NewPage(&new_leaf_page_id);
     BUSTUB_ASSERT(new_leaf_page_id != INVALID_PAGE_ID, "bpt op failed : can`t allocate page");
     auto new_leaf = reinterpret_cast<LeafPage *>(new_leaf_page->GetData());
-    new_leaf->Init(new_leaf_page_id, leaf->GetPageId());
+    new_leaf->Init(new_leaf_page_id, leaf->GetParentPageId());
     leaf->SetNextPageId(new_leaf_page_id);
 
     int shift_pos = (leaf->GetMaxSize() + 1) / 2 - 1;
