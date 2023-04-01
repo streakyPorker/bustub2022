@@ -92,6 +92,18 @@ class BPlusTree {
 
   enum class SafeType { READ, INSERT, DELETE };
 
+  /**
+   * parse a page_id to a BPlusTreePage,after
+   *    1. fetch the page from bpm(which means pinning it)
+   *    2. lock it according to the type param
+   *    3. append it to the lock queue
+   * @attention remember we need to pin the page,so DONT call it right after
+   * bpm->NewPage without unpinning it
+   * @param page_id
+   * @param deque lock queue
+   * @param type lock type
+   * @return parsed page
+   */
   auto ParsePageToGeneralNode(page_id_t page_id, std::deque<std::pair<LockType, Page *>> &deque, LockType type)
       -> BPlusTreePage *;
 
@@ -103,6 +115,8 @@ class BPlusTree {
 
   auto InsertIntoLeafNode(LeafPage *leaf, const KeyType &key, const ValueType &value,
                           std::deque<std::pair<LockType, Page *>> &deque) -> bool;
+
+
 
   inline void ClearLockDeque(std::deque<std::pair<LockType, Page *>> &deque) {
     while (!deque.empty()) {
@@ -116,6 +130,7 @@ class BPlusTree {
       deque.pop_front();
     }
   }
+
 
   // member variable
 

@@ -136,7 +136,9 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
  * necessary.
  */
 INDEX_TEMPLATE_ARGUMENTS
-void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {}
+void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
+  // TODO: remove the record in the header file when the index is completely deleted?
+}
 
 /*****************************************************************************
  * INDEX ITERATOR
@@ -543,42 +545,65 @@ auto BPLUSTREE_TYPE::InsertIntoLeafNode(BPlusTree::LeafPage *leaf, const KeyType
     leaf->SetKVAt(insert_pos + 1, key, value);
     leaf->IncreaseSize(1);
   } else {
-    // need to create the new root first
-    // no need to double-check, since we have to lock leaf first
-    if (leaf->IsRootPage()) {
-      std::scoped_lock<std::mutex> scoped_lock(latch_);
-      Page *page = buffer_pool_manager_->NewPage(&root_page_id_);
-      BUSTUB_ASSERT(root_page_id_ != INVALID_PAGE_ID, "bpt op failed : can`t allocate page");
-      page->WLatch();
-      auto root_page = reinterpret_cast<InternalPage *>(page->GetData());
-      root_page->Init(root_page_id_);
-      leaf->SetParentPageId(root_page_id_);
-      page->WUnlatch();
-      UpdateRootPageId();  // will unpin the root page
-      buffer_pool_manager_->UnpinPage(root_page_id_, true);
-    }
-
-    // now root must be an internal page
-    // wlock the new root to proceed
-    auto root = reinterpret_cast<InternalPage *>(ParsePageToGeneralNode(root_page_id_, deque, LockType::WRITE));
-
     page_id_t new_leaf_page_id;
-    Page *new_leaf_page = buffer_pool_manager_->NewPage(&new_leaf_page_id);
+    buffer_pool_manager_->NewPage(&new_leaf_page_id);
     BUSTUB_ASSERT(new_leaf_page_id != INVALID_PAGE_ID, "bpt op failed : can`t allocate page");
-    auto new_leaf = reinterpret_cast<LeafPage *>(new_leaf_page->GetData());
+    buffer_pool_manager_->UnpinPage(root_page_id_, true);
+
+    // this is necessary, since we have to
+    // 1. pin this page
+    // 2. wlock it
+    // 3. push it to the queue before the root
+    auto new_leaf = static_cast<LeafPage *>(ParsePageToGeneralNode(new_leaf_page_id, deque, LockType::WRITE));
     new_leaf->Init(new_leaf_page_id, leaf->GetParentPageId());
+    new_leaf->SetNextPageId(leaf->GetNextPageId());
     leaf->SetNextPageId(new_leaf_page_id);
 
-    int shift_pos = (leaf->GetMaxSize() + 1) / 2 - 1;
-    KeyType shift_key;
-    if (l == shift_pos - 1) {  // shift the inserted entry
-      for (int i = l + 1, j = 0; i < leaf->GetSize(); i++, j++) {
+    // TODO: maybe try a easier way to impl?
+    int lift_pos = (leaf->GetMaxSize() + 1) << 1;
+    KeyType lift_key;
+    if (insert_pos == lift_pos - 1) {  // shift the inserted entry
+      lift_key = key;
+      for (int i = insert_pos + 1, j = 0; i < leaf->GetSize(); i++, j++) {
+        new_leaf->SetKVAt(j, leaf->KeyAt(i), leaf->ValueAt(i));
+      }
+    } else if (insert_pos < lift_pos - 1) {  // shift the right part
+      lift_key = leaf->KeyAt(leaf->GetMaxSize() / 2 - 1);
+      // transfer the right half to new_leaf
+      for (int i = leaf->GetMaxSize() / 2, j = 0; i < leaf->GetSize(); i++, j++) {
         new_leaf->SetKVAt(j, leaf->KeyAt(i), leaf->ValueAt(i));
       }
 
-    } else if (l < shift_pos - 1) {
+      // rearrange the leaf
+      for (int ri = leaf->GetMaxSize() / 2 - 1; ri > insert_pos; ri--) {
+        leaf->SetKVAt(ri + 1, leaf->KeyAt(ri), leaf->ValueAt(ri));
+      }
+      leaf->SetKVAt(insert_pos + 1, key, value);
+
     } else {
+      lift_key = key;
     }
+
+    //    leaf->SetSize(lift_pos);
+    //    new_leaf->SetSize(leaf->GetMaxSize() / 2);
+
+    InternalPage *parent;
+    // no need to double-check,
+    // since we`ve already wlocked leaf,which is the only cause of spawning a new root
+    if (leaf->IsRootPage()) {
+      std::scoped_lock<std::mutex> scoped_lock(latch_);
+      buffer_pool_manager_->NewPage(&root_page_id_);
+      BUSTUB_ASSERT(root_page_id_ != INVALID_PAGE_ID, "bpt op failed : can`t allocate page");
+      buffer_pool_manager_->UnpinPage(root_page_id_, true);
+      parent = static_cast<InternalPage *>(ParsePageToGeneralNode(root_page_id_, deque, LockType::WRITE));
+      parent->Init(root_page_id_);
+      leaf->SetParentPageId(root_page_id_);
+      UpdateRootPageId();
+    } else {
+      parent = static_cast<InternalPage *>(ParsePageToGeneralNode(leaf->GetParentPageId(), deque, LockType::WRITE));
+    }
+    new_leaf->SetParentPageId(parent->GetPageId());
+    InsertIntoInternalNode(parent, lift_key, new_leaf->GetPageId(), deque);
   }
 
   return true;

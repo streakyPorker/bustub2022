@@ -18,6 +18,7 @@ namespace bustub {
 
 /**
  * Record related
+ * only the index are inserted in the header page,so no need for sync?
  */
 auto HeaderPage::InsertRecord(const std::string &name, const page_id_t root_id) -> bool {
   assert(name.length() < 32);
