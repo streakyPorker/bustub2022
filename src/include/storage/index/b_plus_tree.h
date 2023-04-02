@@ -110,27 +110,16 @@ class BPlusTree {
   auto SearchToLeaf(BPlusTreePage *root_node, const KeyType &key, std::deque<std::pair<LockType, Page *>> &deque,
                     LockStrategy strategy, SafeType safe_type) -> LeafPage *;
 
-  void InsertIntoInternalNode(InternalPage *internal, const KeyType &key, const page_id_t &value,
-                              std::deque<std::pair<LockType, Page *>> &deque);
+  void InsertIntoInternalNode(InternalPage *internal, const KeyType &key, const page_id_t &old_node,
+                              const page_id_t &new_node, std::deque<std::pair<LockType, Page *>> &deque);
+
+  void HandleInternalInsert(InternalPage *internal, const KeyType &key, const page_id_t &old_node,
+                            const page_id_t &new_node, int insert_pos);
 
   auto InsertIntoLeafNode(LeafPage *leaf, const KeyType &key, const ValueType &value,
                           std::deque<std::pair<LockType, Page *>> &deque) -> bool;
 
-
-
-  inline void ClearLockDeque(std::deque<std::pair<LockType, Page *>> &deque) {
-    while (!deque.empty()) {
-      // is_dirty always false, since no write yet when calling this func
-      buffer_pool_manager_->UnpinPage(deque.front().second->GetPageId(), false);
-      if (deque.front().first == LockType::READ) {
-        deque.front().second->RUnlatch();
-      } else {
-        deque.front().second->WUnlatch();
-      }
-      deque.pop_front();
-    }
-  }
-
+  void ClearLockDeque(std::deque<std::pair<LockType, Page *>> &deque, bool is_dirty = false, size_t remain_size = 0);
 
   // member variable
 
