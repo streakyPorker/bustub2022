@@ -113,14 +113,13 @@ class BPlusTree {
   void InsertIntoInternalNode(InternalPage *internal, const KeyType &key, const page_id_t &old_node,
                               const page_id_t &new_node, std::deque<std::pair<LockType, Page *>> &deque);
 
-  void HandleInternalInsert(InternalPage *internal, const KeyType &key, const page_id_t &old_node,
-                            const page_id_t &new_node, int insert_pos);
-
   auto InsertIntoLeafNode(LeafPage *leaf, const KeyType &key, const ValueType &value,
                           std::deque<std::pair<LockType, Page *>> &deque) -> bool;
 
-  void DeleteFromInternalNode(InternalPage *internal, const KeyType &key,const KeyType& new_key,
-                              std::deque<std::pair<LockType, Page *>> &deque);
+  void DeleteFromInternalNode(InternalPage *internal, int index, std::deque<std::pair<LockType, Page *>> &deque);
+
+  void UpdateInternalNode(InternalPage *internal, int index, const KeyType &new_key,
+                          std::deque<std::pair<LockType, Page *>> &deque);
 
   auto DeleteFromLeafNode(LeafPage *leaf, const KeyType &key, std::deque<std::pair<LockType, Page *>> &deque) -> bool;
 

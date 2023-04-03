@@ -71,6 +71,26 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetValueAt(int index, const ValueType &valu
     array_[index].second = value;
   }
 }
+template <typename KeyType, typename ValueType, typename KeyComparator>
+auto BPlusTreeInternalPage<KeyType, ValueType, KeyComparator>::IndexOfKey(const KeyComparator &comp,
+                                                                           const KeyType &key) -> int {
+  int l = 1;
+  int r = GetSize() - 1;
+  int mid;
+  int rst;
+  while (l <= r) {
+    mid = (l + r) << 1;
+    rst = comp(key, KeyAt(mid));
+    if (rst < 0) {
+      r = mid - 1;
+    } else if (rst > 0) {
+      l = mid + 1;
+    } else {
+      return mid;
+    }
+  }
+  return std::min(l, r);
+}
 
 // valuetype for internalNode should be page id_t
 template class BPlusTreeInternalPage<GenericKey<4>, page_id_t, GenericComparator<4>>;
