@@ -52,7 +52,7 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::SetNextPageId(page_id_t next_page_id) { this->n
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_LEAF_PAGE_TYPE::KeyAt(int index) const -> KeyType {
   BUSTUB_ASSERT(index >= 0 && index <= this->GetSize(), "invalid query : index out of bound");
-  return  array_[index].first;
+  return array_[index].first;
 }
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_LEAF_PAGE_TYPE::ValueAt(int index) const -> ValueType {
@@ -69,6 +69,28 @@ INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_LEAF_PAGE_TYPE::SetValueAt(int index, const ValueType &value) {
   BUSTUB_ASSERT(index >= 0 && index < this->GetMaxSize(), "invalid modification : index out of bound");
   array_[index].second = value;
+}
+INDEX_TEMPLATE_ARGUMENTS
+auto B_PLUS_TREE_LEAF_PAGE_TYPE::IndexOfKey(const KeyComparator &comp, const KeyType &key, bool *found) -> int {
+  int l = 0;
+  int r = GetSize() - 1;
+  int mid;
+  int rst;
+  while (l <= r) {
+    mid = (l + r) << 1;
+    rst = comp(key, KeyAt(mid));
+    if (rst == 0) {
+      *found = true;
+      return mid;
+    }
+    if (rst < 0) {
+      r = mid - 1;
+    } else {
+      l = mid + 1;
+    }
+  }
+  *found = false;
+  return std::min(l, r);
 }
 
 template class BPlusTreeLeafPage<GenericKey<4>, RID, GenericComparator<4>>;

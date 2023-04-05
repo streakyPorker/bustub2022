@@ -104,26 +104,30 @@ class BPlusTree {
    * @param type lock type
    * @return parsed page
    */
-  auto ParsePageToGeneralNode(page_id_t page_id, std::deque<std::pair<LockType, Page *>> &deque, LockType type)
-      -> BPlusTreePage *;
+  auto ParsePageToGeneralNode(page_id_t page_id, std::deque<std::pair<LockType, Page *>> &deque, LockType type,
+                              Transaction *txn) -> BPlusTreePage *;
 
   auto SearchToLeaf(BPlusTreePage *root_node, const KeyType &key, std::deque<std::pair<LockType, Page *>> &deque,
-                    LockStrategy strategy, SafeType safe_type) -> LeafPage *;
+                    LockStrategy strategy, SafeType safe_type, Transaction *txn) -> LeafPage *;
 
   void InsertIntoInternalNode(InternalPage *internal, const KeyType &key, const page_id_t &old_node,
-                              const page_id_t &new_node, std::deque<std::pair<LockType, Page *>> &deque);
+                              const page_id_t &new_node, std::deque<std::pair<LockType, Page *>> &deque,
+                              Transaction *txn);
 
   auto InsertIntoLeafNode(LeafPage *leaf, const KeyType &key, const ValueType &value,
-                          std::deque<std::pair<LockType, Page *>> &deque) -> bool;
+                          std::deque<std::pair<LockType, Page *>> &deque, Transaction *txn) -> bool;
 
-  void DeleteFromInternalNode(InternalPage *internal, int index, std::deque<std::pair<LockType, Page *>> &deque);
+  void DeleteFromInternalNode(InternalPage *internal, int index, std::deque<std::pair<LockType, Page *>> &deque,
+                              Transaction *txn);
 
   void UpdateInternalNode(InternalPage *internal, int index, const KeyType &new_key,
-                          std::deque<std::pair<LockType, Page *>> &deque);
+                          std::deque<std::pair<LockType, Page *>> &deque, Transaction *txn);
 
-  auto DeleteFromLeafNode(LeafPage *leaf, const KeyType &key, std::deque<std::pair<LockType, Page *>> &deque) -> bool;
+  auto DeleteFromLeafNode(LeafPage *leaf, const KeyType &key, std::deque<std::pair<LockType, Page *>> &deque,
+                          Transaction *txn) -> bool;
 
-  void ClearLockDeque(std::deque<std::pair<LockType, Page *>> &deque, bool is_dirty = false, size_t remain_size = 0);
+  void ClearLockDeque(std::deque<std::pair<LockType, Page *>> &deque, Transaction *txn, bool is_dirty = false,
+                      size_t remain_size = 0);
 
   // member variable
 

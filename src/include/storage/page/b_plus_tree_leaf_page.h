@@ -57,6 +57,8 @@ class BPlusTreeLeafPage : public BPlusTreePage {
     SetValueAt(index, value);
   }
 
+  auto IndexOfKey(const KeyComparator &comp, const KeyType &key, bool *found = nullptr) -> int;
+
  private:
   page_id_t next_page_id_;
   // Flexible array member for page data.
