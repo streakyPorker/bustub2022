@@ -78,7 +78,6 @@ auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
   Page *page;
   if (page_table_->Find(page_id, frame_id)) {
     page = pages_ + frame_id;
-    page->pin_count_++;
   } else if (replacer_->Evict(&frame_id)) {
     page = pages_ + frame_id;
     if (page->IsDirty()) {
@@ -86,10 +85,8 @@ auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
       latch_.unlock();
       disk_manager_->WritePage(page->GetPageId(), page->GetData());
       latch_.lock();
-
       page->is_dirty_ = false;
     }
-
     page->page_id_ = page_id;
 
     // expensive disk write/read should release the latch_

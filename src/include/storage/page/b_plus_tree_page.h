@@ -16,6 +16,7 @@
 #include <string>
 
 #include "buffer/buffer_pool_manager.h"
+#include "concurrency/transaction.h"
 #include "storage/index/generic_key.h"
 
 namespace bustub {

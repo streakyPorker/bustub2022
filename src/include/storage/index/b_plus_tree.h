@@ -107,8 +107,8 @@ class BPlusTree {
   auto ParsePageToGeneralNode(page_id_t page_id, std::deque<std::pair<LockType, Page *>> &deque, LockType type,
                               Transaction *txn) -> BPlusTreePage *;
 
-  auto SearchToLeaf(BPlusTreePage *root_node, const KeyType &key, std::deque<std::pair<LockType, Page *>> &deque,
-                    LockStrategy strategy, SafeType safe_type, Transaction *txn) -> LeafPage *;
+  auto SeekToLeaf(BPlusTreePage *root_node, const KeyType &key, std::deque<std::pair<LockType, Page *>> &deque,
+                  LockStrategy strategy, SafeType safe_type, Transaction *txn) -> LeafPage *;
 
   void InsertIntoInternalNode(InternalPage *internal, const KeyType &key, const page_id_t &old_node,
                               const page_id_t &new_node, std::deque<std::pair<LockType, Page *>> &deque,
@@ -126,8 +126,28 @@ class BPlusTree {
   auto DeleteFromLeafNode(LeafPage *leaf, const KeyType &key, std::deque<std::pair<LockType, Page *>> &deque,
                           Transaction *txn) -> bool;
 
-  void ClearLockDeque(std::deque<std::pair<LockType, Page *>> &deque, Transaction *txn, bool is_dirty = false,
+  void ClearLockDeque(std::deque<std::pair<LockType, Page *>> &deque, Transaction *txn = nullptr, bool is_dirty = false,
                       size_t remain_size = 0);
+
+  auto SeekToStart(BPlusTreePage *node, std::deque<std::pair<LockType, Page *>> &deque) -> LeafPage *;
+
+  auto SeekToEnd(BPlusTreePage *node, std::deque<std::pair<LockType, Page *>> &deque) -> LeafPage * {
+    if (node->IsLeafPage()) {
+      return reinterpret_cast<LeafPage *>(node);
+    }
+    auto *internal = reinterpret_cast<InternalPage *>(node);
+    LeafPage *leaf = nullptr;
+    while (leaf == nullptr) {
+      node = ParsePageToGeneralNode(internal->ValueAt(internal->GetSize() - 1), deque, LockType::READ, nullptr);
+      ClearLockDeque(deque, nullptr, false, 1);
+      if (node->IsLeafPage()) {
+        leaf = reinterpret_cast<LeafPage *>(node);
+      } else {
+        internal = reinterpret_cast<InternalPage *>(node);
+      }
+    }
+    return leaf;
+  };
 
   // member variable
 
@@ -138,7 +158,8 @@ class BPlusTree {
   int leaf_max_size_;
   int internal_max_size_;
 
-  std::mutex latch_;
+  // protect the root_page_id_ field, not the root page
+  std::shared_timed_mutex rw_latch_;
 };
 
 }  // namespace bustub
