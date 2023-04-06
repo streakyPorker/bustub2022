@@ -15,12 +15,13 @@
 
 #include "buffer/buffer_pool_manager_instance.h"
 #include "gtest/gtest.h"
+#include "storage/disk/disk_manager_memory.h"
 #include "storage/index/b_plus_tree.h"
 #include "test_util.h"  // NOLINT
 
 namespace bustub {
 
-TEST(BPlusTreeTests, DISABLED_InsertTest1) {
+TEST(BPlusTreeTests, /*DISABLED_*/ InsertTest1) {
   // create KeyComparator and index schema
   auto key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema.get());
@@ -37,6 +38,7 @@ TEST(BPlusTreeTests, DISABLED_InsertTest1) {
   // create and fetch header_page
   page_id_t page_id;
   auto header_page = bpm->NewPage(&page_id);
+  LOG_WARN("%d %d", HEADER_PAGE_ID, page_id);
   ASSERT_EQ(page_id, HEADER_PAGE_ID);
   (void)header_page;
 
@@ -64,7 +66,7 @@ TEST(BPlusTreeTests, DISABLED_InsertTest1) {
   remove("test.log");
 }
 
-TEST(BPlusTreeTests, DISABLED_InsertTest2) {
+TEST(BPlusTreeTests, /*DISABLED_*/ InsertTest2) {
   // create KeyComparator and index schema
   auto key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema.get());
@@ -87,8 +89,12 @@ TEST(BPlusTreeTests, DISABLED_InsertTest2) {
   for (auto key : keys) {
     int64_t value = key & 0xFFFFFFFF;
     rid.Set(static_cast<int32_t>(key >> 32), value);
+    if (key == 4) {
+      value = key & 0xFFFFFFFF;
+    }
     index_key.SetFromInteger(key);
     tree.Insert(index_key, rid, transaction);
+    tree.Print(bpm);
   }
 
   std::vector<RID> rids;
@@ -127,7 +133,7 @@ TEST(BPlusTreeTests, DISABLED_InsertTest2) {
   remove("test.log");
 }
 
-TEST(BPlusTreeTests, DISABLED_InsertTest3) {
+TEST(BPlusTreeTests, /*DISABLED_*/ InsertTest3) {
   // create KeyComparator and index schema
   auto key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema.get());
@@ -186,6 +192,48 @@ TEST(BPlusTreeTests, DISABLED_InsertTest3) {
     EXPECT_EQ(location.GetPageId(), 0);
     EXPECT_EQ(location.GetSlotNum(), current_key);
     current_key = current_key + 1;
+  }
+
+  bpm->UnpinPage(HEADER_PAGE_ID, true);
+  delete transaction;
+  delete disk_manager;
+  delete bpm;
+  remove("test.db");
+  remove("test.log");
+}
+
+TEST(BPlusTreeTests, /*DISABLED_*/ InsertTest_lzytest) {
+  // create KeyComparator and index schema
+  auto key_schema = ParseCreateStatement("a bigint");
+  GenericComparator<8> comparator(key_schema.get());
+
+  auto *disk_manager = new DiskManagerMemory(256 << 10);
+  BufferPoolManager *bpm = new BufferPoolManagerInstance(64, disk_manager);
+  // create b+ tree
+  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator, 2, 10);
+  GenericKey<8> index_key;
+  RID rid;
+  // create transaction
+  auto *transaction = new Transaction(0);
+
+  // create and fetch header_page
+  page_id_t page_id;
+  auto header_page = bpm->NewPage(&page_id);
+  ASSERT_EQ(page_id, HEADER_PAGE_ID);
+  (void)header_page;
+  int max = 57;
+  for (int64_t key = 1; key <= max; key++) {
+    int64_t value = key & 0xFFFFFFFF;
+    rid.Set(static_cast<int32_t>(key >> 32), value);
+    index_key.SetFromInteger(key);
+    auto free_size = bpm->GetFreeSizeSep();
+    LOG_INFO("here at %ld, bpm size %d+%d=%d", key, free_size.first, free_size.second, bpm->GetFreeSize());
+    if (key >= max - 3) {
+      LOG_INFO("inner here at %ld", key);
+      //      tree.Draw(bpm, std::to_string(key - 1) + std::string("-data.dot"));
+    }
+
+    tree.Insert(index_key, rid, transaction);
   }
 
   bpm->UnpinPage(HEADER_PAGE_ID, true);

@@ -42,7 +42,8 @@ void BPlusTreePage::SetMaxSize(int size) { max_size_ = size; }
  */
 auto BPlusTreePage::GetMinSize() const -> int {
   // TODO: is it right?
-  return max_size_ / 2; }
+  return max_size_ / 2;
+}
 
 /*
  * Helper methods to get/set parent page id
@@ -60,6 +61,6 @@ void BPlusTreePage::SetPageId(page_id_t page_id) { page_id_ = page_id; }
  * Helper methods to set lsn
  */
 void BPlusTreePage::SetLSN(lsn_t lsn) { lsn_ = lsn; }
-
+IndexPageType BPlusTreePage::GetPageType() const { return page_type_; }
 
 }  // namespace bustub

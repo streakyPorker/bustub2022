@@ -50,26 +50,14 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::SetNextPageId(page_id_t next_page_id) { this->n
  * array offset)
  */
 INDEX_TEMPLATE_ARGUMENTS
-auto B_PLUS_TREE_LEAF_PAGE_TYPE::KeyAt(int index) const -> KeyType {
-  BUSTUB_ASSERT(index >= 0 && index <= this->GetSize(), "invalid query : index out of bound");
-  return array_[index].first;
-}
+auto B_PLUS_TREE_LEAF_PAGE_TYPE::KeyAt(int index) const -> KeyType { return array_[index].first; }
 INDEX_TEMPLATE_ARGUMENTS
-auto B_PLUS_TREE_LEAF_PAGE_TYPE::ValueAt(int index) const -> ValueType {
-  BUSTUB_ASSERT(index >= 0 && index < this->GetSize(), "invalid query : index out of bound");
-  return array_[index].second;
-}
+auto B_PLUS_TREE_LEAF_PAGE_TYPE::ValueAt(int index) const -> ValueType { return array_[index].second; }
 INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_LEAF_PAGE_TYPE::SetKeyAt(int index, const KeyType &key) {
-  BUSTUB_ASSERT(index >= 0 && index < this->GetMaxSize(), "invalid modification : index out of bound");
-  array_[index].first = key;
-}
+void B_PLUS_TREE_LEAF_PAGE_TYPE::SetKeyAt(int index, const KeyType &key) { array_[index].first = key; }
 
 INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_LEAF_PAGE_TYPE::SetValueAt(int index, const ValueType &value) {
-  BUSTUB_ASSERT(index >= 0 && index < this->GetMaxSize(), "invalid modification : index out of bound");
-  array_[index].second = value;
-}
+void B_PLUS_TREE_LEAF_PAGE_TYPE::SetValueAt(int index, const ValueType &value) { array_[index].second = value; }
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_LEAF_PAGE_TYPE::IndexOfKey(const KeyComparator &comp, const KeyType &key, bool *found) -> int {
   int l = 0;
@@ -77,7 +65,7 @@ auto B_PLUS_TREE_LEAF_PAGE_TYPE::IndexOfKey(const KeyComparator &comp, const Key
   int mid;
   int rst;
   while (l <= r) {
-    mid = (l + r) << 1;
+    mid = (l + r) / 2;
     rst = comp(key, KeyAt(mid));
     if (rst == 0) {
       *found = true;

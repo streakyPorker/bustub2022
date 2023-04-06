@@ -20,7 +20,7 @@
 
 namespace bustub {
 
-TEST(BPlusTreeTests, DISABLED_DeleteTest1) {
+TEST(BPlusTreeTests, /*DISABLED_*/DeleteTest1) {
   // create KeyComparator and index schema
   auto key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema.get());
@@ -58,15 +58,17 @@ TEST(BPlusTreeTests, DISABLED_DeleteTest1) {
     EXPECT_EQ(rids[0].GetSlotNum(), value);
   }
 
-  std::vector<int64_t> remove_keys = {1, 5};
+  std::vector<int64_t> remove_keys = {1,5};
   for (auto key : remove_keys) {
     index_key.SetFromInteger(key);
+//    tree.GetValue(index_key,&rids);
     tree.Remove(index_key, transaction);
+//    index_key.SetFromInteger(1);
+//    tree.GetValue(index_key,&rids);
   }
 
   int64_t size = 0;
   bool is_present;
-
   for (auto key : keys) {
     rids.clear();
     index_key.SetFromInteger(key);
@@ -92,7 +94,7 @@ TEST(BPlusTreeTests, DISABLED_DeleteTest1) {
   remove("test.log");
 }
 
-TEST(BPlusTreeTests, DISABLED_DeleteTest2) {
+TEST(BPlusTreeTests, /*DISABLED_*/DeleteTest2) {
   // create KeyComparator and index schema
   auto key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema.get());

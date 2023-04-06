@@ -28,6 +28,12 @@ namespace bustub {
 // define page type enum
 enum class IndexPageType { INVALID_INDEX_PAGE = 0, LEAF_PAGE, INTERNAL_PAGE };
 
+enum class LockStrategy { READ_LOCK, OPTIM_WRITE_LOCK, PESSI_WRITE_LOCK };
+
+enum class LockType { READ, WRITE };
+
+enum class SafeType { READ, INSERT, DELETE };
+
 /**
  * Both internal and leaf page are inherited from this page.
  *
@@ -45,6 +51,7 @@ class BPlusTreePage {
  public:
   auto IsLeafPage() const -> bool;
   auto IsRootPage() const -> bool;
+  IndexPageType GetPageType() const;
   void SetPageType(IndexPageType page_type);
 
   auto GetSize() const -> int;
@@ -63,11 +70,12 @@ class BPlusTreePage {
 
   void SetLSN(lsn_t lsn = INVALID_LSN);
 
-  inline bool IsSafe(const WType& w_type) {
-    if (w_type == WType::INSERT) {
+  bool IsSafe(const SafeType &safe_type) const {
+    if (safe_type != SafeType::DELETE) {
       return GetSize() < GetMaxSize();
     }
-    return GetSize() > GetMinSize();
+
+    return IsRootPage() ? true : GetSize() > GetMinSize();
   };
 
  private:

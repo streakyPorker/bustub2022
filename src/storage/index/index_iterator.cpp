@@ -15,11 +15,19 @@ INDEX_TEMPLATE_ARGUMENTS
 INDEXITERATOR_TYPE::IndexIterator() : leaf_(nullptr), index_(0){};
 
 INDEX_TEMPLATE_ARGUMENTS
-INDEXITERATOR_TYPE::~IndexIterator() {
+INDEXITERATOR_TYPE::IndexIterator(IndexIterator::LeafPage *leaf, BufferPoolManager *bpm, int index)
+    : leaf_(leaf), bpm_(bpm), index_(index) {
+  page_ = bpm_->FetchPage(leaf_->GetPageId());
   if (page_ != nullptr) {
-    page_->RUnlatch();
+    page_->RLatch();  // test for reachability
     bpm_->UnpinPage(page_->GetPageId(), false);
+    page_->RUnlatch();
   }
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+INDEXITERATOR_TYPE::~IndexIterator(){
+
 };  // NOLINT
 
 INDEX_TEMPLATE_ARGUMENTS
@@ -37,16 +45,15 @@ auto INDEXITERATOR_TYPE::operator++() -> INDEXITERATOR_TYPE & {
   index_++;
   if (index_ == leaf_->GetSize()) {
     if (leaf_->GetNextPageId() == INVALID_PAGE_ID) {
-      page_->RUnlatch();
       page_ = nullptr;
       leaf_ = nullptr;
       return *this;
     }
     Page *new_page = bpm_->FetchPage(leaf_->GetNextPageId());
-    page_->RUnlatch();
-    bpm_->UnpinPage(page_->GetPageId(), false);
     if (new_page != nullptr) {
       new_page->RLatch();
+      bpm_->UnpinPage(page_->GetPageId(), false);
+      new_page->RUnlatch();
       leaf_ = reinterpret_cast<LeafPage *>(new_page->GetData());
       page_ = new_page;
     }
@@ -64,12 +71,15 @@ auto INDEXITERATOR_TYPE::operator==(const IndexIterator &itr) const -> bool {
 }
 
 INDEX_TEMPLATE_ARGUMENTS
-auto IndexIterator<KeyType, ValueType, KeyComparator>::operator!=(const IndexIterator &itr) const -> bool {
+auto INDEXITERATOR_TYPE::operator!=(const IndexIterator &itr) const -> bool {
   if (leaf_ == nullptr || itr.leaf_ == nullptr) {
     return leaf_ != itr.leaf_;
   }
   return leaf_->GetPageId() != itr.leaf_->GetPageId() || index_ != itr.index_;
 }
+INDEX_TEMPLATE_ARGUMENTS
+INDEXITERATOR_TYPE::IndexIterator(const IndexIterator &copy)
+    : leaf_(copy.leaf_), bpm_(copy.bpm_), page_(copy.page_), index_(copy.index_) {}
 
 template class IndexIterator<GenericKey<4>, RID, GenericComparator<4>>;
 

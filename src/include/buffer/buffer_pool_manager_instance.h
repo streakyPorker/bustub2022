@@ -52,6 +52,12 @@ class BufferPoolManagerInstance : public BufferPoolManager {
   /** @brief Return the pointer to all the pages in the buffer pool. */
   auto GetPages() -> Page * { return pages_; }
 
+  auto GetFreeSize() -> int override { return free_list_.size() + replacer_->Size(); };
+
+  auto GetFreeSizeSep() -> std::pair<int, int> override {
+    return std::make_pair(free_list_.size(), replacer_->Size());
+  };
+
  protected:
   /**
    * TODO(P1): Add implementation
@@ -178,7 +184,6 @@ class BufferPoolManagerInstance : public BufferPoolManager {
 
   // TODO(student): You may add additional private members and helper functions
 
-  auto PinPageInternal(Page *page,frame_id_t frame_id) -> int;
-
+  auto PinPageInternal(Page *page, frame_id_t frame_id) -> int;
 };
 }  // namespace bustub

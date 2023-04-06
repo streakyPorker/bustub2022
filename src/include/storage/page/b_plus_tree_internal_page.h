@@ -52,6 +52,7 @@ class BPlusTreeInternalPage : public BPlusTreePage {
 
  private:
   // Flexible array member for page data.
+  // *(std::pair<bustub::GenericKey<8>,int>(*)[10])internal->array_
   MappingType array_[1];
 };
 }  // namespace bustub

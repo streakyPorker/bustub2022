@@ -26,13 +26,8 @@ class IndexIterator {
  public:
   // you may define your own constructor based on your member variables
   IndexIterator();
-  explicit IndexIterator(LeafPage *leaf, BufferPoolManager *bpm, int index = 0)
-      : leaf_(leaf), bpm_(bpm), index_(index) {
-    page_ = bpm_->FetchPage(leaf_->GetNextPageId());
-    if (page_ != nullptr) {
-      page_->RLatch();
-    }
-  }
+  explicit IndexIterator(LeafPage *leaf, BufferPoolManager *bpm, int index = 0);
+  IndexIterator(const IndexIterator& copy);
   ~IndexIterator();  // NOLINT
 
   auto IsEnd() -> bool;

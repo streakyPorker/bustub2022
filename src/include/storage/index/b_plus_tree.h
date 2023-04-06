@@ -86,12 +86,6 @@ class BPlusTree {
    * self def
    */
 
-  enum class LockStrategy { READ_LOCK, OPTIM_WRITE_LOCK, PESSI_WRITE_LOCK };
-
-  enum class LockType { READ, WRITE };
-
-  enum class SafeType { READ, INSERT, DELETE };
-
   /**
    * search the deque to find the page ,if not found, parse a page_id to a BPlusTreePage,after
    *    1. fetch the page from bpm(which means pinning it)
@@ -148,6 +142,46 @@ class BPlusTree {
     }
     return leaf;
   };
+
+  auto ProcessNodeByStrategy(BPlusTreePage *const node, std::deque<std::pair<LockType, Page *>> &deque,
+                             LockStrategy strategy, SafeType safe_type, Transaction *txn) -> BPlusTreePage * {
+    switch (strategy) {
+      case LockStrategy::OPTIM_WRITE_LOCK:
+        if (!node->IsLeafPage()) {  // non-leaf,same as READ_LOCK
+          ClearLockDeque(deque, txn, false, 1);
+        } else {
+          if (node->IsSafe(safe_type)) {
+            // 1. upgrade the leaf latch to write mode at optim mode
+            // 2. check safe state, return nullptr(to switch lock mode) if failed
+            Page *leaf_page = deque.back().second;
+            deque.pop_back();
+            leaf_page->RUnlatch();
+            leaf_page->WLatch();
+            if (txn != nullptr) {
+              txn->AddIntoPageSet(leaf_page);
+            }
+            deque.emplace_back(LockType::WRITE, leaf_page);
+
+            // unlock all the previous rlock, start writing
+            ClearLockDeque(deque, txn, false, 1);
+          } else {  // not safe, optim write not available, release all the lock, return null to start over
+            ClearLockDeque(deque, txn, false, 0);
+            return nullptr;
+          }
+        }
+        break;
+      case LockStrategy::READ_LOCK:  // simply release prev lock
+        ClearLockDeque(deque, txn, false, 1);
+        break;
+      case LockStrategy::PESSI_WRITE_LOCK:
+        if (node->IsSafe(safe_type)) {
+          // release all prev wlock
+          ClearLockDeque(deque, txn, false, 1);
+        }  // else hold the lock
+        break;
+    }
+    return node;
+  }
 
   // member variable
 
