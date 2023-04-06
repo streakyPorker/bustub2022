@@ -221,19 +221,19 @@ TEST(BPlusTreeTests, /*DISABLED_*/ InsertTest_lzytest) {
   auto header_page = bpm->NewPage(&page_id);
   ASSERT_EQ(page_id, HEADER_PAGE_ID);
   (void)header_page;
-  int max = 57;
+  int max = 300;
   for (int64_t key = 1; key <= max; key++) {
     int64_t value = key & 0xFFFFFFFF;
     rid.Set(static_cast<int32_t>(key >> 32), value);
     index_key.SetFromInteger(key);
     auto free_size = bpm->GetFreeSizeSep();
-    LOG_INFO("here at %ld, bpm size %d+%d=%d", key, free_size.first, free_size.second, bpm->GetFreeSize());
     if (key >= max - 3) {
       LOG_INFO("inner here at %ld", key);
       //      tree.Draw(bpm, std::to_string(key - 1) + std::string("-data.dot"));
     }
-
+    LOG_INFO("before insert %ld, bpm size %d+%d=%d", key, free_size.first, free_size.second, bpm->GetFreeSize());
     tree.Insert(index_key, rid, transaction);
+    LOG_INFO("after insert %ld, bpm size %d+%d=%d", key, free_size.first, free_size.second, bpm->GetFreeSize());
   }
 
   bpm->UnpinPage(HEADER_PAGE_ID, true);

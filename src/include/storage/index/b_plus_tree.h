@@ -120,8 +120,8 @@ class BPlusTree {
   auto DeleteFromLeafNode(LeafPage *leaf, const KeyType &key, std::deque<std::pair<LockType, Page *>> &deque,
                           Transaction *txn) -> bool;
 
-  void ClearLockDeque(std::deque<std::pair<LockType, Page *>> &deque, Transaction *txn = nullptr, bool is_dirty = false,
-                      size_t remain_size = 0);
+  void ClearLockDeque(std::deque<std::pair<LockType, Page *>> &deque, Transaction *txn, bool is_dirty,
+                      size_t remain_size);
 
   auto SeekToStart(BPlusTreePage *node, std::deque<std::pair<LockType, Page *>> &deque) -> LeafPage *;
 

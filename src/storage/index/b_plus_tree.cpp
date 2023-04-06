@@ -57,18 +57,18 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
 
   LeafPage *leaf = SeekToLeaf(node, key, locked_pages, LockStrategy::READ_LOCK, SafeType::READ, transaction);
   if (leaf == nullptr) {
-    ClearLockDeque(locked_pages, transaction, false);
+    ClearLockDeque(locked_pages, transaction, false, 0);
     return false;
   }
   bool found;
   int rst = leaf->IndexOfKey(comparator_, key, &found);
   if (!found) {
     // not found in the leaf node
-    ClearLockDeque(locked_pages, transaction, false);
+    ClearLockDeque(locked_pages, transaction, false, 0);
     return false;
   }
   result->push_back(leaf->ValueAt(rst));
-  ClearLockDeque(locked_pages, transaction, false);
+  ClearLockDeque(locked_pages, transaction, false, 0);
   return true;
 }
 
@@ -170,7 +170,7 @@ auto BPLUSTREE_TYPE::Begin() -> INDEXITERATOR_TYPE {
   std::deque<std::pair<LockType, Page *>> locked_pages;
   auto root = ParsePageToGeneralNode(root_page_id_, locked_pages, LockType::READ, nullptr);
   LeafPage *leaf = SeekToStart(root, locked_pages);
-  ClearLockDeque(locked_pages);
+  ClearLockDeque(locked_pages, nullptr, false, 0);
   return INDEXITERATOR_TYPE(leaf, buffer_pool_manager_, 0);  // holding the rlock of the leaf
 }
 
@@ -191,7 +191,7 @@ auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE {
   LeafPage *leaf = SeekToLeaf(root, key, locked_pages, LockStrategy::READ_LOCK, SafeType::READ, nullptr);
   bool found;
   int pos = leaf->IndexOfKey(comparator_, key, &found);
-  ClearLockDeque(locked_pages);
+  ClearLockDeque(locked_pages, nullptr, false, 0);
   if (!found && pos == leaf->GetSize()) {
     return INDEXITERATOR_TYPE();
   }
@@ -493,7 +493,7 @@ void BPLUSTREE_TYPE::InsertIntoInternalNode(InternalPage *internal, const KeyTyp
     internal->SetValueAt(0, old_node);
     internal->SetKVAt(1, key, new_node);
     internal->SetSize(2);
-    ClearLockDeque(deque, txn, true);  // the nodes are modified after all
+    ClearLockDeque(deque, txn, true, 0);  // the nodes are modified after all
     return;
   }
 
@@ -508,14 +508,14 @@ void BPLUSTREE_TYPE::InsertIntoInternalNode(InternalPage *internal, const KeyTyp
     //    LOG_WARN("%d %d",internal->ValueAt(insert_pos),old_node);
     BUSTUB_ASSERT(internal->ValueAt(insert_pos) == old_node, "bpt op failed:wrong internal structure");
     internal->IncreaseSize(1);
-    ClearLockDeque(deque, txn, true);
+    ClearLockDeque(deque, txn, true, 0);
     return;
   }
 
   page_id_t new_internal_page_id;
   buffer_pool_manager_->NewPage(&new_internal_page_id);
   BUSTUB_ASSERT(new_internal_page_id != INVALID_PAGE_ID, "bpt op failed : can`t allocate page");
-  buffer_pool_manager_->UnpinPage(root_page_id_, true);
+  buffer_pool_manager_->UnpinPage(new_internal_page_id, true);
 
   // this is necessary, since we have to
   // 1. pin this page
@@ -596,13 +596,13 @@ auto BPLUSTREE_TYPE::InsertIntoLeafNode(BPlusTree::LeafPage *leaf, const KeyType
     }
     leaf->SetKVAt(insert_pos + 1, key, value);
     leaf->IncreaseSize(1);
-    ClearLockDeque(deque, txn, true);  // release all lock
+    ClearLockDeque(deque, txn, true, 0);  // release all lock
     return true;
   }
   page_id_t new_leaf_page_id;
   buffer_pool_manager_->NewPage(&new_leaf_page_id);
   BUSTUB_ASSERT(new_leaf_page_id != INVALID_PAGE_ID, "bpt op failed : can`t allocate page");
-  buffer_pool_manager_->UnpinPage(root_page_id_, true);
+  buffer_pool_manager_->UnpinPage(new_leaf_page_id, true);
 
   // this is necessary, since we have to
   // 1. pin this page
@@ -697,7 +697,7 @@ void BPLUSTREE_TYPE::DeleteFromInternalNode(BPlusTree::InternalPage *internal, i
   }
   internal->IncreaseSize(-1);
   if (internal->GetSize() >= internal->GetMinSize()) {
-    ClearLockDeque(deque, txn, true);
+    ClearLockDeque(deque, txn, true, 0);
     return;
   }
 
@@ -709,14 +709,14 @@ void BPLUSTREE_TYPE::DeleteFromInternalNode(BPlusTree::InternalPage *internal, i
     new_root->SetParentPageId(INVALID_PAGE_ID);
     txn->AddIntoDeletedPageSet(internal->GetPageId());
     UpdateRootPageId();
-    ClearLockDeque(deque, txn, true);
+    ClearLockDeque(deque, txn, true, 0);
     return;
   }
 
   auto *parent =
       static_cast<InternalPage *>(ParsePageToGeneralNode(internal->GetParentPageId(), deque, LockType::WRITE, txn));
   if (parent == nullptr) {
-    ClearLockDeque(deque, txn, true);
+    ClearLockDeque(deque, txn, true, 0);
     return;
   }
   InternalPage *first;
@@ -802,7 +802,7 @@ auto BPLUSTREE_TYPE::DeleteFromLeafNode(BPlusTree::LeafPage *leaf, const KeyType
   auto *parent =
       static_cast<InternalPage *>(ParsePageToGeneralNode(leaf->GetParentPageId(), deque, LockType::WRITE, txn));
   if (parent == nullptr) {  // only one node
-    ClearLockDeque(deque, txn, true);
+    ClearLockDeque(deque, txn, true, 0);
     return true;
   }
   LeafPage *first;
