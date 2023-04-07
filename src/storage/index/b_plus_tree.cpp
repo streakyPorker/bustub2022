@@ -658,7 +658,7 @@ auto BPLUSTREE_TYPE::InsertIntoLeafNode(BPlusTree::LeafPage *leaf, const KeyType
   } else {
     parent = static_cast<InternalPage *>(ParsePageToGeneralNode(leaf->GetParentPageId(), deque, LockType::WRITE, txn));
   }
-  new_leaf->SetParentPageId(parent->GetPageId());
+  new_leaf->SetParentPageId(parent->GetPageId());//TODO: no need
   // no need to release the locks on these nodes, since no r/w can reach here
   // as long as the parent is wlocked
   InsertIntoInternalNode(parent, lift_key, leaf->GetPageId(), new_leaf->GetPageId(), deque, txn);

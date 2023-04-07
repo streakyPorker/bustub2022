@@ -44,12 +44,14 @@ INDEX_TEMPLATE_ARGUMENTS
 auto INDEXITERATOR_TYPE::operator++() -> INDEXITERATOR_TYPE & {
   index_++;
   if (index_ == leaf_->GetSize()) {
+    index_ = 0;
     if (leaf_->GetNextPageId() == INVALID_PAGE_ID) {
       page_ = nullptr;
       leaf_ = nullptr;
       return *this;
     }
     Page *new_page = bpm_->FetchPage(leaf_->GetNextPageId());
+    assert(new_page->GetPageId()==leaf_->GetNextPageId());
     if (new_page != nullptr) {
       new_page->RLatch();
       bpm_->UnpinPage(page_->GetPageId(), false);
