@@ -51,7 +51,6 @@ auto INDEXITERATOR_TYPE::operator++() -> INDEXITERATOR_TYPE & {
       return *this;
     }
     Page *new_page = bpm_->FetchPage(leaf_->GetNextPageId());
-    assert(new_page->GetPageId()==leaf_->GetNextPageId());
     if (new_page != nullptr) {
       new_page->RLatch();
       bpm_->UnpinPage(page_->GetPageId(), false);
@@ -79,9 +78,7 @@ auto INDEXITERATOR_TYPE::operator!=(const IndexIterator &itr) const -> bool {
   }
   return leaf_->GetPageId() != itr.leaf_->GetPageId() || index_ != itr.index_;
 }
-INDEX_TEMPLATE_ARGUMENTS
-INDEXITERATOR_TYPE::IndexIterator(const IndexIterator &copy)
-    : leaf_(copy.leaf_), bpm_(copy.bpm_), page_(copy.page_), index_(copy.index_) {}
+
 
 template class IndexIterator<GenericKey<4>, RID, GenericComparator<4>>;
 

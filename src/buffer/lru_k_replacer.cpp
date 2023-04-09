@@ -12,141 +12,117 @@
 
 #include "buffer/lru_k_replacer.h"
 
+#include <numeric>
+
+#include "common/exception.h"
+
 namespace bustub {
 
+/* ----------- LRUKNode ----------- */
+LRUKNode::LRUKNode(size_t k) : k_(k) {}
+
+void LRUKNode::RecordAccess(time_stamp_t time_stamp) {
+  size_t history_size = history_.size();
+  assert(history_size <= k_);
+  if (history_size == k_) {
+    history_.pop_back();
+  }
+  history_.emplace_front(time_stamp);
+}
+
+auto LRUKNode::EarliestTimeStamp() -> time_stamp_t {
+  assert(!history_.empty());
+  return history_.back();
+}
+
+/* ----------- LRUKReplacer ----------- */
 LRUKReplacer::LRUKReplacer(size_t num_frames, size_t k) : replacer_size_(num_frames), k_(k) {}
 
 auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
-  std::scoped_lock<std::mutex> lock(latch_);
-  for (BiListNode *node = non_cache_list_.head_; node != nullptr; node = node->next) {
-    if (node->evictable) {
-      *frame_id = node->frame_id_;
-      non_cache_list_.remove(node);
-      non_cache_map_.erase(node->frame_id_);
-      delete node;
-      curr_size_--;
-      return true;
+  std::scoped_lock lock(latch_);
+  // less than k access
+  std::vector<std::pair<frame_id_t, LRUKNode *>> lt_k_access;
+  for (auto &[id, node] : node_table_) {
+    if (node.Evictable() && !node.KAccess()) {
+      lt_k_access.emplace_back(std::make_pair(id, &node));
     }
   }
-
-  for (BiListNode *node = cache_list_.head_; node != nullptr; node = node->next) {
-    if (node->evictable) {
-      *frame_id = node->frame_id_;
-      cache_list_.remove(node);
-      cache_map_.erase(node->frame_id_);
-      delete node;
-      curr_size_--;
-      return true;
+  time_stamp_t earliest = std::numeric_limits<time_stamp_t>::max();
+  if (!lt_k_access.empty()) {
+    // The nodes whose access num is less than k but unevictable
+    // are filtered out.
+    // All nodes in `lt_k_access` are evictable.
+    for (const auto &pair : lt_k_access) {
+      if (pair.second->EarliestTimeStamp() < earliest) {
+        *frame_id = pair.first;
+        earliest = pair.second->EarliestTimeStamp();
+      }
     }
+  } else {
+    for (auto &[id, node] : node_table_) {
+      if (!node.Evictable()) {
+        continue;
+      }
+      time_stamp_t curr_node_time_stamp = node.EarliestTimeStamp();
+      if (curr_node_time_stamp < earliest) {
+        *frame_id = id;
+        earliest = curr_node_time_stamp;
+      }
+    }
+  }
+  if (earliest != std::numeric_limits<time_stamp_t>::max()) {
+    node_table_.erase(*frame_id);
+    curr_size_--;
+    return true;
   }
   return false;
 }
 
 void LRUKReplacer::RecordAccess(frame_id_t frame_id) {
-  BUSTUB_ASSERT(frame_id < (int)replacer_size_, "invalid frame id");
-  std::scoped_lock<std::mutex> lock(latch_);
-  BiListNode *node;
-  if (non_cache_map_.count(frame_id) != 0) {
-    node = non_cache_map_[frame_id];
-    non_cache_list_.remove(node);
-
-    if (node->access(current_timestamp_) != SIZE_MAX) {  // promote to cache_list_
-      non_cache_map_.erase(frame_id);
-      InsertToCacheList(cache_list_.head_, node);
-      cache_map_[frame_id] = node;
-    } else {  // still here, but the last to evict
-      non_cache_list_.push(node);
-    }
-  } else if (cache_map_.count(frame_id) != 0) {
-    node = cache_map_[frame_id];
-    node->access(current_timestamp_);
-    BiListNode *next = node->next;
-    cache_list_.remove(node);
-    InsertToCacheList(next, node);
-
-  } else {  // need to add a new node and incr size
-    node = new BiListNode(k_, frame_id, current_timestamp_);
-    non_cache_map_[frame_id] = node;
-    non_cache_list_.push(node);
-    curr_size_++;
-  }
-
-  current_timestamp_++;
+  std::scoped_lock lock(latch_);
+  ExamineFrameIdValid(frame_id);
+  const auto [it, inserted] = node_table_.try_emplace(frame_id, k_);
+  it->second.RecordAccess(current_timestamp_++);
 }
 
-void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
-  BUSTUB_ASSERT(frame_id < (int)replacer_size_, "invalid frame id");
-  std::scoped_lock<std::mutex> lock(latch_);
-  BiListNode *node;
-  if (non_cache_map_.count(frame_id) != 0) {
-    node = non_cache_map_[frame_id];
-  } else if (cache_map_.count(frame_id) != 0) {
-    node = cache_map_[frame_id];
-  } else {
+void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool evictable) {
+  std::scoped_lock lock(latch_);
+  ExamineFrameIdValid(frame_id);
+  auto it = node_table_.find(frame_id);
+  if (it == node_table_.end()) {
     return;
   }
-  if (node->evictable && !set_evictable) {  // true -> false
+  if (it->second.Evictable() && !evictable) {
+    it->second.SetEvictable(false);
     curr_size_--;
-  } else if (!node->evictable && set_evictable) {  // false -> true
+  } else if (!it->second.Evictable() && evictable) {
+    it->second.SetEvictable(true);
     curr_size_++;
   }
-  node->evictable = set_evictable;
 }
 
 void LRUKReplacer::Remove(frame_id_t frame_id) {
-  BUSTUB_ASSERT(frame_id < (int)replacer_size_, "invalid frame id");
-  std::scoped_lock<std::mutex> lock(latch_);
-  BiListNode *node;
-  if (non_cache_map_.count(frame_id) != 0) {
-    node = non_cache_map_[frame_id];
-    BUSTUB_ASSERT(node->evictable, "removing non-evictable frame");
-    non_cache_list_.remove(node);
-    non_cache_map_.erase(frame_id);
-  } else if (cache_map_.count(frame_id) != 0) {
-    node = cache_map_[frame_id];
-    BUSTUB_ASSERT(node->evictable, "removing non-evictable frame");
-    cache_list_.remove(node);
-    cache_map_.erase(frame_id);
-  } else {
+  std::scoped_lock lock(latch_);
+  ExamineFrameIdValid(frame_id);
+  auto it = node_table_.find(frame_id);
+  if (it == node_table_.end()) {
     return;
   }
-  delete node;
-  curr_size_--;
-}
-
-auto LRUKReplacer::Size() -> size_t { return curr_size_; }
-
-LRUKReplacer::~LRUKReplacer() {
-  for (auto iter : cache_map_) {
-    delete iter.second;
-  }
-  for (auto iter : non_cache_map_) {
-    delete iter.second;
+  if (it->second.Evictable()) {
+    node_table_.erase(it);
+    curr_size_--;
+  } else {
+    throw bustub::Exception("try to remove an unevictable node!");
   }
 }
 
-/**
- * insert node into cache list
- * @param iter
- * @param node
- * @require node need to be deleted first
- */
-void LRUKReplacer::InsertToCacheList(LRUKReplacer::BiListNode *iter, LRUKReplacer::BiListNode *node) {
-  while (iter != nullptr && node->better(iter)) {
-    iter = iter->next;
-  }
-  if (iter == nullptr) {  // add to the end (push)
-    cache_list_.push(node);
-  } else {  // add to iter`s front
-    node->next = iter;
-    node->prev = iter->prev;
-    if (node->prev != nullptr) {
-      node->prev->next = node;
-    }else{
-      cache_list_.head_ = node;
-    }
-    iter->prev = node;
-  }
+auto LRUKReplacer::Size() -> size_t {
+  std::scoped_lock lock(latch_);
+  return curr_size_;
 }
 
+void LRUKReplacer::ExamineFrameIdValid(frame_id_t frame_id) {
+  //   BUSTUB_ASSERT(frame_id <= replacer_size_, "Invalid frame id!");
+  assert(frame_id <= static_cast<int32_t>(replacer_size_));
+}
 }  // namespace bustub

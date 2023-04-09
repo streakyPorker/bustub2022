@@ -430,8 +430,7 @@ auto BPLUSTREE_TYPE::ParsePageToGeneralNode(page_id_t page_id, std::deque<std::p
   // if the page is already locked, check the lock type and parse it directly
   for (auto iter = deque.begin(); iter != deque.end(); iter++) {
     if (iter->second->GetPageId() == page_id) {
-      BUSTUB_ASSERT(type == iter->first && type == LockType::WRITE,
-                    "bpt op failed:only write condition might trigger backtracking");
+      BUSTUB_ASSERT(type == iter->first, "bpt op failed:only write condition might trigger backtracking");
       page = iter->second;
       break;
     }
@@ -658,7 +657,7 @@ auto BPLUSTREE_TYPE::InsertIntoLeafNode(BPlusTree::LeafPage *leaf, const KeyType
   } else {
     parent = static_cast<InternalPage *>(ParsePageToGeneralNode(leaf->GetParentPageId(), deque, LockType::WRITE, txn));
   }
-  new_leaf->SetParentPageId(parent->GetPageId());//TODO: no need
+  new_leaf->SetParentPageId(parent->GetPageId());  // TODO: no need
   // no need to release the locks on these nodes, since no r/w can reach here
   // as long as the parent is wlocked
   InsertIntoInternalNode(parent, lift_key, leaf->GetPageId(), new_leaf->GetPageId(), deque, txn);

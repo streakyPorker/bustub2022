@@ -88,6 +88,7 @@ class BufferPoolManager {
   virtual auto GetPoolSize() -> size_t = 0;
   virtual auto GetFreeSize() -> int = 0;
   virtual auto GetFreeSizeSep() -> std::pair<int, int> = 0;
+  virtual void PrintFreeCond(int max_key)=0;
 
  protected:
   /**

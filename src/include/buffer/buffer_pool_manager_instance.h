@@ -58,6 +58,19 @@ class BufferPoolManagerInstance : public BufferPoolManager {
     return std::make_pair(free_list_.size(), replacer_->Size());
   };
 
+  void PrintFreeCond(int max_key) override {
+    int value;
+    std::vector<int> rep_frameid;
+    using namespace std;
+    cout << "resident page: ";
+    for (int i = 0; i <= max_key; ++i) {
+      if (page_table_->Find(i, value) && pages_[value].GetPageId() == i) {
+        cout << i << ", ";
+      }
+    }
+    cout << endl;
+  }
+
  protected:
   /**
    * TODO(P1): Add implementation
@@ -184,6 +197,13 @@ class BufferPoolManagerInstance : public BufferPoolManager {
 
   // TODO(student): You may add additional private members and helper functions
 
-  auto PinPageInternal(Page *page, frame_id_t frame_id) -> int;
+
+  void ResetPageData(Page *page);
+
+  auto FindPage(page_id_t page_id, frame_id_t &frame_id) -> Page *;
+
+  auto FindAvailableFrame(frame_id_t &frame_id) -> bool;
+
+  void ExaminePageId(page_id_t page_id);
 };
 }  // namespace bustub

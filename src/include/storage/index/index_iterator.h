@@ -27,7 +27,7 @@ class IndexIterator {
   // you may define your own constructor based on your member variables
   IndexIterator();
   explicit IndexIterator(LeafPage *leaf, BufferPoolManager *bpm, int index = 0);
-  IndexIterator(const IndexIterator& copy);
+  IndexIterator(const IndexIterator &copy) = delete;
   ~IndexIterator();  // NOLINT
 
   auto IsEnd() -> bool;
