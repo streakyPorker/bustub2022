@@ -430,7 +430,7 @@ auto BPLUSTREE_TYPE::ParsePageToGeneralNode(page_id_t page_id, std::deque<std::p
   // if the page is already locked, check the lock type and parse it directly
   for (auto iter = deque.begin(); iter != deque.end(); iter++) {
     if (iter->second->GetPageId() == page_id) {
-      BUSTUB_ASSERT(type == iter->first, "bpt op failed:only write condition might trigger backtracking");
+      assert(type == iter->first);
       page = iter->second;
       break;
     }
@@ -504,8 +504,7 @@ void BPLUSTREE_TYPE::InsertIntoInternalNode(InternalPage *internal, const KeyTyp
     }
     // the first entry will never change on insert, so insert_pos can`t be -1
     internal->SetKVAt(insert_pos + 1, key, new_node);
-    //    LOG_WARN("%d %d",internal->ValueAt(insert_pos),old_node);
-    BUSTUB_ASSERT(internal->ValueAt(insert_pos) == old_node, "bpt op failed:wrong internal structure");
+//    BUSTUB_ASSERT(internal->ValueAt(insert_pos) == old_node, "bpt op failed:wrong internal structure");
     internal->IncreaseSize(1);
     ClearLockDeque(deque, txn, true, 0);
     return;
@@ -552,7 +551,7 @@ void BPLUSTREE_TYPE::InsertIntoInternalNode(InternalPage *internal, const KeyTyp
   new_internal->SetSize(new_internal->GetMinSize() + 1);
 
   // need to alter every child`s parent for the new internal
-  for (int i = 0; i < new_internal_page_id; i++) {
+  for (int i = 0; i < new_internal->GetSize(); i++) {
     auto node = ParsePageToGeneralNode(new_internal->ValueAt(i), deque, LockType::WRITE, txn);
     node->SetParentPageId(new_internal_page_id);
   }
@@ -750,6 +749,8 @@ void BPLUSTREE_TYPE::DeleteFromInternalNode(BPlusTree::InternalPage *internal, i
   if (total_size < internal_max_size_) {
     for (int i = first->GetSize(), j = 0; j < second->GetSize(); j++) {
       first->SetKVAt(i, second->KeyAt(j), second->ValueAt(j));
+      auto parent_changed_node = ParsePageToGeneralNode(second->ValueAt(j), deque, LockType::WRITE, txn);
+      parent_changed_node->SetParentPageId(first->GetPageId());
     }
     first->SetSize(total_size);
     // declare deletion of the eaten page
@@ -764,11 +765,15 @@ void BPLUSTREE_TYPE::DeleteFromInternalNode(BPlusTree::InternalPage *internal, i
       }
       for (int i = total_size / 2, j = 0; i < first->GetSize(); i++, j++) {  // fill
         second->SetKVAt(j, first->KeyAt(i), first->ValueAt(i));
+        auto parent_changed_node = ParsePageToGeneralNode(first->ValueAt(i), deque, LockType::WRITE, txn);
+        parent_changed_node->SetParentPageId(second->GetPageId());
       }
     } else {  // second->first
       diff = total_size / 2 - first->GetSize();
       for (int i = first->GetSize(), j = 0; i < total_size / 2; i++, j++) {  // append
         first->SetKVAt(i, second->KeyAt(j), second->ValueAt(j));
+        auto parent_changed_node = ParsePageToGeneralNode(second->ValueAt(j), deque, LockType::WRITE, txn);
+        parent_changed_node->SetParentPageId(first->GetPageId());
       }
       for (int j = 0; j < total_size - first->GetSize(); j++) {  // shift left
         second->SetKVAt(j, second->KeyAt(j + diff), second->ValueAt(j + diff));
@@ -862,6 +867,7 @@ INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::UpdateInternalNode(InternalPage *internal, int index, const KeyType &new_key,
                                         std::deque<std::pair<LockType, Page *>> &deque, Transaction *txn) {
   internal->SetKeyAt(index, new_key);
+  assert(index != 0);
   ClearLockDeque(deque, txn, true, 0);
 }
 

@@ -205,5 +205,7 @@ class BufferPoolManagerInstance : public BufferPoolManager {
   auto FindAvailableFrame(frame_id_t &frame_id) -> bool;
 
   void ExaminePageId(page_id_t page_id);
+
+
 };
 }  // namespace bustub

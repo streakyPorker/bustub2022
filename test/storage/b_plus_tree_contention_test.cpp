@@ -46,6 +46,9 @@ bool BPlusTreeLockBenchmarkCall(size_t num_threads, int leaf_node_size, bool wit
       auto *transaction = new Transaction(static_cast<txn_id_t>(i + 1));
       const auto end_key = keys_stride * i + keys_per_thread;
       for (auto key = i * keys_stride; key < end_key; key++) {
+        if(key%50==0){
+          LOG_INFO("here key is %ld",key);
+        }
         int64_t value = key & 0xFFFFFFFF;
         rid.Set(static_cast<int32_t>(key >> 32), value);
         index_key.SetFromInteger(key);
@@ -83,6 +86,48 @@ TEST(BPlusTreeTest, /*DISABLED_*/ BPlusTreeContentionBenchmark) {  // NOLINT
     auto clock_start = std::chrono::system_clock::now();
     ASSERT_TRUE(BPlusTreeLockBenchmarkCall(32, 2, enable_mutex));
 //    ASSERT_TRUE(BPlusTreeLockBenchmarkCall(1, 2, enable_mutex));
+    auto clock_end = std::chrono::system_clock::now();
+    auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(clock_end - clock_start);
+    if (enable_mutex) {
+      time_ms_with_mutex.push_back(dur.count());
+    } else {
+      time_ms_wo_mutex.push_back(dur.count());
+    }
+  }
+  std::cout << "This test will see how your B+ tree performance differs with and without contention." << std::endl;
+  std::cout << "<<< BEGIN" << std::endl;
+  std::cout << "Normal Access Time: ";
+  double ratio_1 = 0;
+  double ratio_2 = 0;
+  for (auto x : time_ms_wo_mutex) {
+    std::cout << x << " ";
+    ratio_1 += x;
+  }
+  std::cout << std::endl;
+
+  std::cout << "Serialized Access Time: ";
+  for (auto x : time_ms_with_mutex) {
+    std::cout << x << " ";
+    ratio_2 += x;
+  }
+  std::cout << std::endl;
+  std::cout << "Ratio: " << ratio_1 / ratio_2 << std::endl;
+  std::cout << ">>> END" << std::endl;
+  std::cout << "If your above data is an outlier in all submissions (based on statistics and probably some "
+               "machine-learning), TAs will manually inspect your code to ensure you are implementing lock crabbing "
+               "correctly."
+            << std::endl;
+}
+
+TEST(BPlusTreeTest, /*DISABLED_*/ BPlusTreeContentionBenchmark_lzy) {  // NOLINT
+  std::vector<size_t> time_ms_with_mutex;
+  std::vector<size_t> time_ms_wo_mutex;
+  for (size_t iter = 0; iter < 20; iter++) {
+    bool enable_mutex = iter % 2 == 0;
+    //    bool enable_mutex = true;
+    auto clock_start = std::chrono::system_clock::now();
+    ASSERT_TRUE(BPlusTreeLockBenchmarkCall(2, 2, enable_mutex));
+    //    ASSERT_TRUE(BPlusTreeLockBenchmarkCall(1, 2, enable_mutex));
     auto clock_end = std::chrono::system_clock::now();
     auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(clock_end - clock_start);
     if (enable_mutex) {

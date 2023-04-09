@@ -58,7 +58,6 @@ class BPlusTreeLeafPage : public BPlusTreePage {
   }
 
   auto KVAt(int index) const -> const MappingType & { return array_[index]; }
-
   auto IndexOfKey(const KeyComparator &comp, const KeyType &key, bool *found = nullptr) -> int;
 
  private:
