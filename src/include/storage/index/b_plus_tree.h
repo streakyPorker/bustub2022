@@ -102,7 +102,7 @@ class BPlusTree {
                               Transaction *txn) -> BPlusTreePage *;
 
   auto SeekToLeaf(BPlusTreePage *root_node, const KeyType &key, std::deque<std::pair<LockType, Page *>> &deque,
-                  LockStrategy strategy, SafeType safe_type, Transaction *txn) -> LeafPage *;
+                  LockType lock_type, SafeType safe_type, Transaction *txn) -> LeafPage *;
 
   void InsertIntoInternalNode(InternalPage *internal, const KeyType &key, const page_id_t &old_node,
                               const page_id_t &new_node, std::deque<std::pair<LockType, Page *>> &deque,
@@ -128,7 +128,7 @@ class BPlusTree {
   auto SeekToStart(BPlusTreePage *node, std::deque<std::pair<LockType, Page *>> &deque) -> LeafPage *;
 
   auto ProcessNodeByStrategy(BPlusTreePage *node, std::deque<std::pair<LockType, Page *>> &deque,
-                             LockStrategy strategy, SafeType safe_type, Transaction *txn) -> BPlusTreePage *;
+                             LockType strategy, SafeType safe_type, Transaction *txn) -> BPlusTreePage *;
 
   // member variable
 

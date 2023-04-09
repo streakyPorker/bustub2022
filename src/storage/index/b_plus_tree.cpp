@@ -55,7 +55,7 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
   auto node = ParsePageToGeneralNode(root_page_id_, locked_pages, LockType::READ, transaction);
   BUSTUB_ASSERT(node != nullptr && node->IsRootPage(), "invalid root page id");
 
-  LeafPage *leaf = SeekToLeaf(node, key, locked_pages, LockStrategy::READ_LOCK, SafeType::READ, transaction);
+  LeafPage *leaf = SeekToLeaf(node, key, locked_pages, LockType::READ, SafeType::READ, transaction);
   if (leaf == nullptr) {
     ClearLockDeque(locked_pages, transaction, false, 0);
     return false;
@@ -99,7 +99,7 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
 
   // optimistic mode first
   auto node = ParsePageToGeneralNode(root_page_id_, locked_pages, LockType::WRITE, transaction);
-  LeafPage *leaf = SeekToLeaf(node, key, locked_pages, LockStrategy::WRITE_LOCK, SafeType::INSERT, transaction);
+  LeafPage *leaf = SeekToLeaf(node, key, locked_pages, LockType::WRITE, SafeType::INSERT, transaction);
 
   BUSTUB_ASSERT(leaf != nullptr, "bpt op failed:internal search error");
 
@@ -125,7 +125,7 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
   }
   std::deque<std::pair<LockType, Page *>> locked_pages;
   auto node = ParsePageToGeneralNode(root_page_id_, locked_pages, LockType::WRITE, transaction);
-  LeafPage *leaf = SeekToLeaf(node, key, locked_pages, LockStrategy::WRITE_LOCK, SafeType::DELETE, transaction);
+  LeafPage *leaf = SeekToLeaf(node, key, locked_pages, LockType::WRITE, SafeType::DELETE, transaction);
   BUSTUB_ASSERT(leaf != nullptr, "bpt op failed:internal search error");
 
   DeleteFromLeafNode(leaf, key, locked_pages, transaction);
@@ -167,7 +167,7 @@ auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE {
   }
   std::deque<std::pair<LockType, Page *>> locked_pages;
   auto root = ParsePageToGeneralNode(root_page_id_, locked_pages, LockType::READ, nullptr);
-  LeafPage *leaf = SeekToLeaf(root, key, locked_pages, LockStrategy::READ_LOCK, SafeType::READ, nullptr);
+  LeafPage *leaf = SeekToLeaf(root, key, locked_pages, LockType::READ, SafeType::READ, nullptr);
   bool found;
   int pos = leaf->IndexOfKey(comparator_, key, &found);
   ClearLockDeque(locked_pages, nullptr, false, 0);
@@ -391,6 +391,10 @@ void BPLUSTREE_TYPE::ToString(BPlusTreePage *page, BufferPoolManager *bpm) const
   } else {
     auto *internal = reinterpret_cast<InternalPage *>(page);
     std::cout << "Internal Page: " << internal->GetPageId() << " parent: " << internal->GetParentPageId() << std::endl;
+    if(internal->GetPageType()==IndexPageType::INVALID_INDEX_PAGE){
+      LOG_ERROR("hgere12333333333333333");
+    }
+
     for (int i = 0; i < internal->GetSize(); i++) {
       std::cout << internal->KeyAt(i) << ": " << internal->ValueAt(i) << ",";
     }
@@ -438,20 +442,18 @@ auto BPLUSTREE_TYPE::ParsePageToGeneralNode(page_id_t page_id, std::deque<std::p
 
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::SeekToLeaf(BPlusTreePage *node, const KeyType &key, std::deque<std::pair<LockType, Page *>> &deque,
-                                LockStrategy strategy, SafeType safe_type, Transaction *txn) -> BPlusTree::LeafPage * {
-  LockType node_lock_type = strategy != LockStrategy::WRITE_LOCK ? LockType::READ : LockType::WRITE;
-
+                                LockType lock_type, SafeType safe_type, Transaction *txn) -> BPlusTree::LeafPage * {
   if (node->IsLeafPage()) {
-    return static_cast<LeafPage *>(ProcessNodeByStrategy(node, deque, strategy, safe_type, txn));
+    return static_cast<LeafPage *>(ProcessNodeByStrategy(node, deque, lock_type, safe_type, txn));
   }
   LeafPage *leaf = nullptr;
   auto *internal = reinterpret_cast<InternalPage *>(node);
 
   while (leaf == nullptr) {
     int pos = internal->IndexOfKey(comparator_, key);
-    node = ParsePageToGeneralNode(internal->ValueAt(pos), deque, node_lock_type, txn);
+    node = ParsePageToGeneralNode(internal->ValueAt(pos), deque, lock_type, txn);
     BUSTUB_ASSERT(node != nullptr, "bpt op failed:wrong pointer");
-    assert(ProcessNodeByStrategy(node, deque, strategy, safe_type, txn) != nullptr);
+    assert(ProcessNodeByStrategy(node, deque, lock_type, safe_type, txn) != nullptr);
     if (node->IsLeafPage()) {
       leaf = reinterpret_cast<LeafPage *>(node);
     } else {
@@ -480,6 +482,11 @@ void BPLUSTREE_TYPE::InsertIntoInternalNode(InternalPage *internal, const KeyTyp
     }
     // the first entry will never change on insert, so insert_pos can`t be -1
     internal->SetKVAt(insert_pos + 1, key, new_node);
+    if (internal->ValueAt(insert_pos) != old_node) {
+      //      Draw(buffer_pool_manager_, "11111111111111.dot");
+      Print(buffer_pool_manager_);
+      LOG_ERROR("insert pos:%d, supposed:%d,actual:%d", insert_pos, old_node, internal->ValueAt(insert_pos));
+    }
     BUSTUB_ASSERT(internal->ValueAt(insert_pos) == old_node, "bpt op failed:wrong internal structure");
     internal->IncreaseSize(1);
     ClearLockDeque(deque, txn, true, 0);
@@ -489,7 +496,7 @@ void BPLUSTREE_TYPE::InsertIntoInternalNode(InternalPage *internal, const KeyTyp
   page_id_t new_internal_page_id;
   buffer_pool_manager_->NewPage(&new_internal_page_id);
   BUSTUB_ASSERT(new_internal_page_id != INVALID_PAGE_ID, "bpt op failed : can`t allocate page");
-  buffer_pool_manager_->UnpinPage(new_internal_page_id, true);
+  buffer_pool_manager_->UnpinPage(new_internal_page_id, false);
 
   // this is necessary, since we have to
   // 1. pin this page
@@ -576,7 +583,7 @@ auto BPLUSTREE_TYPE::InsertIntoLeafNode(BPlusTree::LeafPage *leaf, const KeyType
   page_id_t new_leaf_page_id;
   buffer_pool_manager_->NewPage(&new_leaf_page_id);
   BUSTUB_ASSERT(new_leaf_page_id != INVALID_PAGE_ID, "bpt op failed : can`t allocate page");
-  buffer_pool_manager_->UnpinPage(new_leaf_page_id, true);
+  buffer_pool_manager_->UnpinPage(new_leaf_page_id, false);
 
   // this is necessary, since we have to
   // 1. pin this page
@@ -870,13 +877,12 @@ auto BPLUSTREE_TYPE::SeekToStart(BPlusTreePage *node, std::deque<std::pair<LockT
 }
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::ProcessNodeByStrategy(BPlusTreePage *const node, std::deque<std::pair<LockType, Page *>> &deque,
-                                           LockStrategy strategy, SafeType safe_type, Transaction *txn)
-    -> BPlusTreePage * {
+                                           LockType strategy, SafeType safe_type, Transaction *txn) -> BPlusTreePage * {
   switch (strategy) {
-    case LockStrategy::READ_LOCK:  // simply release prev lock
+    case LockType::READ:  // simply release prev lock
       ClearLockDeque(deque, txn, false, 1);
       break;
-    case LockStrategy::WRITE_LOCK:
+    case LockType::WRITE:
       if (node->IsSafe(safe_type)) {
         // release all prev wlock
         ClearLockDeque(deque, txn, false, 1);
