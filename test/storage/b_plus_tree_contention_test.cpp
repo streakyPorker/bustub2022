@@ -46,8 +46,8 @@ bool BPlusTreeLockBenchmarkCall(size_t num_threads, int leaf_node_size, bool wit
       auto *transaction = new Transaction(static_cast<txn_id_t>(i + 1));
       const auto end_key = keys_stride * i + keys_per_thread;
       for (auto key = i * keys_stride; key < end_key; key++) {
-        if(key%50==0){
-          LOG_INFO("here key is %ld",key);
+        if (key % 100 == 0) {
+          LOG_INFO("here key is %ld", key);
         }
         int64_t value = key & 0xFFFFFFFF;
         rid.Set(static_cast<int32_t>(key >> 32), value);
@@ -81,11 +81,11 @@ TEST(BPlusTreeTest, /*DISABLED_*/ BPlusTreeContentionBenchmark) {  // NOLINT
   std::vector<size_t> time_ms_with_mutex;
   std::vector<size_t> time_ms_wo_mutex;
   for (size_t iter = 0; iter < 20; iter++) {
-        bool enable_mutex = iter % 2 == 0;
-//    bool enable_mutex = true;
+    bool enable_mutex = iter % 2 == 0;
+    //    bool enable_mutex = true;
     auto clock_start = std::chrono::system_clock::now();
     ASSERT_TRUE(BPlusTreeLockBenchmarkCall(32, 2, enable_mutex));
-//    ASSERT_TRUE(BPlusTreeLockBenchmarkCall(1, 2, enable_mutex));
+    //    ASSERT_TRUE(BPlusTreeLockBenchmarkCall(1, 2, enable_mutex));
     auto clock_end = std::chrono::system_clock::now();
     auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(clock_end - clock_start);
     if (enable_mutex) {
@@ -126,7 +126,7 @@ TEST(BPlusTreeTest, /*DISABLED_*/ BPlusTreeContentionBenchmark_lzy) {  // NOLINT
     bool enable_mutex = iter % 2 == 0;
     //    bool enable_mutex = true;
     auto clock_start = std::chrono::system_clock::now();
-    ASSERT_TRUE(BPlusTreeLockBenchmarkCall(2, 2, enable_mutex));
+    ASSERT_TRUE(BPlusTreeLockBenchmarkCall(22, 2, enable_mutex));
     //    ASSERT_TRUE(BPlusTreeLockBenchmarkCall(1, 2, enable_mutex));
     auto clock_end = std::chrono::system_clock::now();
     auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(clock_end - clock_start);

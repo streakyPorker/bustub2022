@@ -28,7 +28,7 @@ namespace bustub {
 // define page type enum
 enum class IndexPageType { INVALID_INDEX_PAGE = 0, LEAF_PAGE, INTERNAL_PAGE };
 
-enum class LockStrategy { READ_LOCK, OPTIM_WRITE_LOCK, PESSI_WRITE_LOCK };
+enum class LockStrategy { READ_LOCK, WRITE_LOCK };
 
 enum class LockType { READ, WRITE };
 
