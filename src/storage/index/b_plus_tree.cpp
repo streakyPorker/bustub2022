@@ -100,7 +100,6 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
   // optimistic mode first
   auto node = ParsePageToGeneralNode(root_page_id_, locked_pages, LockType::WRITE, transaction);
   LeafPage *leaf = SeekToLeaf(node, key, locked_pages, LockType::WRITE, SafeType::INSERT, transaction);
-
   BUSTUB_ASSERT(leaf != nullptr, "bpt op failed:internal search error");
 
   return InsertIntoLeafNode(leaf, key, value, locked_pages, transaction);
@@ -253,6 +252,7 @@ void BPLUSTREE_TYPE::RemoveFromFile(const std::string &file_name, Transaction *t
  */
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::Draw(BufferPoolManager *bpm, const std::string &outf) {
+  std::scoped_lock<std::shared_mutex> scopedLock(rw_latch_);
   if (IsEmpty()) {
     LOG_WARN("Draw an empty tree");
     return;
@@ -391,7 +391,7 @@ void BPLUSTREE_TYPE::ToString(BPlusTreePage *page, BufferPoolManager *bpm) const
   } else {
     auto *internal = reinterpret_cast<InternalPage *>(page);
     std::cout << "Internal Page: " << internal->GetPageId() << " parent: " << internal->GetParentPageId() << std::endl;
-    if(internal->GetPageType()==IndexPageType::INVALID_INDEX_PAGE){
+    if (internal->GetPageType() == IndexPageType::INVALID_INDEX_PAGE) {
       LOG_ERROR("hgere12333333333333333");
     }
 
@@ -510,7 +510,7 @@ void BPLUSTREE_TYPE::InsertIntoInternalNode(InternalPage *internal, const KeyTyp
   // transfer the right half to new_internal
   if (insert_pos < lift_pos - 1) {  // the inserted entry stays at the left half
     for (int i = lift_pos - 1, j = 0; i < internal->GetSize(); i++, j++) {
-      new_internal->SetKVAt(j, new_internal->KeyAt(i), new_internal->ValueAt(i));
+      new_internal->SetKVAt(j, internal->KeyAt(i), internal->ValueAt(i));
     }
     // rearrange the internal
     for (int ri = lift_pos - 2; ri > insert_pos; ri--) {
@@ -529,7 +529,7 @@ void BPLUSTREE_TYPE::InsertIntoInternalNode(InternalPage *internal, const KeyTyp
       new_internal->SetKVAt(j++, internal->KeyAt(i), internal->ValueAt(i));
     }
   }
-  KeyType lift_key = new_internal->KeyAt(0);
+  KeyType lift_key = new_internal->KeyAt(1);
   internal->SetSize(lift_pos);
   new_internal->SetSize(new_internal->GetMinSize() + 1);
 
