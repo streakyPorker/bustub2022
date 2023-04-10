@@ -26,8 +26,8 @@ class IndexIterator {
  public:
   // you may define your own constructor based on your member variables
   IndexIterator();
-  explicit IndexIterator(LeafPage *leaf, BufferPoolManager *bpm, int index = 0);
-  IndexIterator(const IndexIterator &copy) = delete;
+  explicit IndexIterator(page_id_t leaf_page, BufferPoolManager *bpm, int index = 0);
+  DISALLOW_COPY_AND_MOVE(IndexIterator);
   ~IndexIterator();  // NOLINT
 
   auto IsEnd() -> bool;
@@ -41,8 +41,8 @@ class IndexIterator {
   auto operator!=(const IndexIterator &itr) const -> bool;
 
  private:
-  LeafPage *leaf_;
   BufferPoolManager *bpm_;
+  LeafPage *leaf_;
   Page *page_;
   int index_;
   // add your own private member variables here
