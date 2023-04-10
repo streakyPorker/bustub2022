@@ -160,7 +160,8 @@ class ExtendibleHashTable : public HashTable<K, V> {
     auto CurrentLocalIndex() -> size_t;
     auto LocalIndexOf(const K &key) -> size_t;
 
-   private:  size_t size_;
+   private:
+    size_t size_;
     int depth_;
     std::list<std::pair<K, V>> list_;
   };
