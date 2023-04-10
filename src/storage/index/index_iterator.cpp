@@ -11,7 +11,7 @@ namespace bustub {
  * set your own input parameters
  */
 INDEX_TEMPLATE_ARGUMENTS
-INDEXITERATOR_TYPE::IndexIterator() : leaf_(nullptr), index_(0){};
+INDEXITERATOR_TYPE::IndexIterator() : leaf_(nullptr), index_(0) {}
 
 INDEX_TEMPLATE_ARGUMENTS
 INDEXITERATOR_TYPE::IndexIterator(IndexIterator::LeafPage *leaf, BufferPoolManager *bpm, int index)

@@ -47,3 +47,4 @@ template class ExtendibleHashTableIndex<GenericKey<32>, RID, GenericComparator<3
 template class ExtendibleHashTableIndex<GenericKey<64>, RID, GenericComparator<64>>;
 
 }  // namespace bustub
+

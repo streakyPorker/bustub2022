@@ -1,5 +1,6 @@
 #include <string>
 
+#include <utility>
 #include "common/exception.h"
 #include "common/logger.h"
 #include "common/rid.h"
@@ -639,7 +640,7 @@ auto BPLUSTREE_TYPE::InsertIntoLeafNode(BPlusTree::LeafPage *leaf, const KeyType
   } else {
     parent = static_cast<InternalPage *>(ParsePageToGeneralNode(leaf->GetParentPageId(), deque, LockType::WRITE, txn));
   }
-  new_leaf->SetParentPageId(parent->GetPageId());  // TODO: no need
+  new_leaf->SetParentPageId(parent->GetPageId());
   // no need to release the locks on these nodes, since no r/w can reach here
   // as long as the parent is wlocked
   InsertIntoInternalNode(parent, lift_key, leaf->GetPageId(), new_leaf->GetPageId(), deque, txn);
