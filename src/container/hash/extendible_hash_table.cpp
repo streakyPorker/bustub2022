@@ -205,7 +205,7 @@ auto ExtendibleHashTable<K, V>::Bucket::Insert(const K &key, const V &value) -> 
     return false;
   }
   /* Otherwise we can insert the pair. */
-  list_.push_back(std::make_pair(key, value));
+  list_.emplace_back(key, value);
   return true;
 }
 

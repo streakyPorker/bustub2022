@@ -27,7 +27,7 @@ void LRUKNode::RecordAccess(time_stamp_t time_stamp) {
   if (history_size == k_) {
     history_.pop_back();
   }
-  history_.emplace_front(time_stamp);
+  history_.push_front(time_stamp);
 }
 
 auto LRUKNode::EarliestTimeStamp() -> time_stamp_t {
@@ -44,7 +44,7 @@ auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
   std::vector<std::pair<frame_id_t, LRUKNode *>> lt_k_access;
   for (auto &[id, node] : node_table_) {
     if (node.Evictable() && !node.KAccess()) {
-      lt_k_access.emplace_back(std::make_pair(id, &node));
+      lt_k_access.emplace_back(id, &node);
     }
   }
   time_stamp_t earliest = std::numeric_limits<time_stamp_t>::max();
@@ -81,8 +81,8 @@ auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
 void LRUKReplacer::RecordAccess(frame_id_t frame_id) {
   std::scoped_lock lock(latch_);
   ExamineFrameIdValid(frame_id);
-  const auto [it, inserted] = node_table_.try_emplace(frame_id, k_);
-  it->second.RecordAccess(current_timestamp_++);
+  const auto rst_pair = node_table_.try_emplace(frame_id, k_);
+  rst_pair.first->second.RecordAccess(current_timestamp_++);
 }
 
 void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool evictable) {

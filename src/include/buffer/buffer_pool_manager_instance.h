@@ -52,24 +52,6 @@ class BufferPoolManagerInstance : public BufferPoolManager {
   /** @brief Return the pointer to all the pages in the buffer pool. */
   auto GetPages() -> Page * { return pages_; }
 
-  //  auto GetFreeSize() -> int override { return free_list_.size() + replacer_->Size(); };
-  //
-  //  auto GetFreeSizeSep() -> std::pair<int, int> override {
-  //    return std::make_pair(free_list_.size(), replacer_->Size());
-  //  };
-  //
-  //  void PrintFreeCond(int max_key) override {
-  //    int value;
-  //    std::vector<int> rep_frameid;
-  //    using namespace std;
-  //    cout << "resident page: ";
-  //    for (int i = 0; i <= max_key; ++i) {
-  //      if (page_table_->Find(i, value) && pages_[value].GetPageId() == i) {
-  //        cout << i << ", ";
-  //      }
-  //    }
-  //    cout << endl;
-  //  }
 
  protected:
   /**
