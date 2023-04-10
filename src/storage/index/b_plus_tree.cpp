@@ -483,11 +483,11 @@ void BPLUSTREE_TYPE::InsertIntoInternalNode(InternalPage *internal, const KeyTyp
     }
     // the first entry will never change on insert, so insert_pos can`t be -1
     internal->SetKVAt(insert_pos + 1, key, new_node);
-    if (internal->ValueAt(insert_pos) != old_node) {
-      //      Draw(buffer_pool_manager_, "11111111111111.dot");
-      Print(buffer_pool_manager_);
-      LOG_ERROR("insert pos:%d, supposed:%d,actual:%d", insert_pos, old_node, internal->ValueAt(insert_pos));
-    }
+    //    if (internal->ValueAt(insert_pos) != old_node) {
+    //      //      Draw(buffer_pool_manager_, "11111111111111.dot");
+    //      Print(buffer_pool_manager_);
+    //      LOG_ERROR("insert pos:%d, supposed:%d,actual:%d", insert_pos, old_node, internal->ValueAt(insert_pos));
+    //    }
     BUSTUB_ASSERT(internal->ValueAt(insert_pos) == old_node, "bpt op failed:wrong internal structure");
     internal->IncreaseSize(1);
     ClearLockDeque(deque, txn, true, 0);
