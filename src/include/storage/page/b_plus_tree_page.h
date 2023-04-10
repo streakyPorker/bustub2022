@@ -19,6 +19,13 @@
 #include "concurrency/transaction.h"
 #include "storage/index/generic_key.h"
 
+// index op
+enum class IndexPageType { INVALID_INDEX_PAGE = 0, LEAF_PAGE, INTERNAL_PAGE };
+
+enum class LockType { READ, WRITE };
+
+enum class SafeType { READ, INSERT, DELETE };
+
 namespace bustub {
 
 #define MappingType std::pair<KeyType, ValueType>
@@ -26,7 +33,6 @@ namespace bustub {
 #define INDEX_TEMPLATE_ARGUMENTS template <typename KeyType, typename ValueType, typename KeyComparator>
 
 // define page type enum
-
 
 /**
  * Both internal and leaf page are inherited from this page.

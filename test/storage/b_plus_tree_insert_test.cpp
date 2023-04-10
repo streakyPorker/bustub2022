@@ -226,7 +226,7 @@ TEST(BPlusTreeTests, /*DISABLED_*/ InsertTest_lzytest) {
     int64_t value = key & 0xFFFFFFFF;
     rid.Set(static_cast<int32_t>(key >> 32), value);
     index_key.SetFromInteger(key);
-    LOG_INFO("process %ld",key);
+    LOG_INFO("process %ld", key);
     tree.Insert(index_key, rid, transaction);
   }
 
@@ -269,9 +269,6 @@ TEST(BPlusTreeTests, /*DISABLED_*/ InsertTest_lzytest2) {
     int64_t value = key;
     rid.Set(static_cast<int32_t>(key >> 32), value);
     index_key.SetFromInteger(key);
-    auto free_size = bpm->GetFreeSizeSep();
-    LOG_INFO("before insert %ld, bpm size %d+%d=%d", key, free_size.first, free_size.second, bpm->GetFreeSize());
-
     //    if (key == max) {
     //      LOG_INFO("inner here at %ld", key);
     //            tree.Draw(bpm, std::to_string(key - 1) + std::string("-largest.dot"));
@@ -284,8 +281,6 @@ TEST(BPlusTreeTests, /*DISABLED_*/ InsertTest_lzytest2) {
       tree.Draw(bpm, std::to_string(key) + std::string("-largest-2.dot"));
       tree.Print(bpm);
     }
-    free_size = bpm->GetFreeSizeSep();
-    LOG_INFO("after insert %ld, bpm size %d+%d=%d", key, free_size.first, free_size.second, bpm->GetFreeSize());
   }
 
   int i = 0;

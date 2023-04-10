@@ -55,12 +55,6 @@ enum class IsolationLevel { READ_UNCOMMITTED, REPEATABLE_READ, READ_COMMITTED };
 enum class WType { INSERT = 0, DELETE, UPDATE };
 
 
-// index op
-enum class IndexPageType { INVALID_INDEX_PAGE = 0, LEAF_PAGE, INTERNAL_PAGE };
-
-enum class LockType { READ, WRITE };
-
-enum class SafeType { READ, INSERT, DELETE };
 
 class TableHeap;
 class Catalog;
