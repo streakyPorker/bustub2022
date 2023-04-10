@@ -16,9 +16,9 @@
 //#include "common/logger.h"
 //#include "common/macros.h"
 //
-//namespace bustub {
+// namespace bustub {
 //
-//BufferPoolManagerInstance::BufferPoolManagerInstance(size_t pool_size, DiskManager *disk_manager, size_t replacer_k,
+// BufferPoolManagerInstance::BufferPoolManagerInstance(size_t pool_size, DiskManager *disk_manager, size_t replacer_k,
 //                                                     LogManager *log_manager)
 //    : pool_size_(pool_size), disk_manager_(disk_manager), log_manager_(log_manager) {
 //  // we allocate a consecutive memory space for the buffer pool
@@ -32,13 +32,13 @@
 //  }
 //}
 //
-//BufferPoolManagerInstance::~BufferPoolManagerInstance() {
+// BufferPoolManagerInstance::~BufferPoolManagerInstance() {
 //  delete[] pages_;
 //  delete page_table_;
 //  delete replacer_;
 //}
 //
-//auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
+// auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
 //  std::scoped_lock<std::mutex> lock(latch_);
 //  frame_id_t frame_id;
 //  if (!free_list_.empty()) {
@@ -71,7 +71,7 @@
 //  return page;
 //}
 //
-//auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
+// auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
 //  BUSTUB_ASSERT(page_id != INVALID_PAGE_ID, "invalid page id");
 //  std::scoped_lock<std::mutex> lock(latch_);
 //  frame_id_t frame_id;
@@ -102,7 +102,7 @@
 //  return page;
 //}
 //
-//auto BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) -> bool {
+// auto BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) -> bool {
 //  BUSTUB_ASSERT(page_id != INVALID_PAGE_ID, "invalid page id");
 //  std::scoped_lock<std::mutex> lock(latch_);
 //  frame_id_t frame_id;
@@ -121,7 +121,7 @@
 //  return false;
 //}
 //
-//auto BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) -> bool {
+// auto BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) -> bool {
 //  std::scoped_lock<std::mutex> lock(latch_);
 //  frame_id_t frame_id;
 //  Page *page;
@@ -139,7 +139,7 @@
 //  return false;
 //}
 //
-//void BufferPoolManagerInstance::FlushAllPgsImp() {
+// void BufferPoolManagerInstance::FlushAllPgsImp() {
 //  Page *page;
 //  for (size_t i = 0; i < pool_size_; i++) {
 //    page = &pages_[i];
@@ -153,7 +153,7 @@
 //  }
 //}
 //
-//auto BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) -> bool {
+// auto BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) -> bool {
 //  BUSTUB_ASSERT(page_id != INVALID_PAGE_ID, "invalid page id");
 //  frame_id_t frame_id;
 //  Page *page;
@@ -176,16 +176,15 @@
 //  return true;
 //}
 //
-//auto BufferPoolManagerInstance::AllocatePage() -> page_id_t { return next_page_id_++; }
+// auto BufferPoolManagerInstance::AllocatePage() -> page_id_t { return next_page_id_++; }
 //
-//auto BufferPoolManagerInstance::PinPageInternal(Page *page, frame_id_t frame_id) -> int {
+// auto BufferPoolManagerInstance::PinPageInternal(Page *page, frame_id_t frame_id) -> int {
 //  replacer_->RecordAccess(frame_id);
 //  replacer_->SetEvictable(frame_id, false);
 //  return ++page->pin_count_;
 //}
 //
 //}  // namespace bustub
-
 
 //===----------------------------------------------------------------------===//
 //
@@ -412,4 +411,4 @@ void BufferPoolManagerInstance::ExaminePageId(page_id_t page_id) {
   assert(page_id < next_page_id_);
 }
 
-}
+}  // namespace bustub

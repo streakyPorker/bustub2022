@@ -123,12 +123,10 @@ class BPlusTree {
   void ClearLockDeque(std::deque<std::pair<LockType, Page *>> &deque, Transaction *txn, bool is_dirty,
                       size_t remain_size);
 
-
-
   auto SeekToStart(BPlusTreePage *node, std::deque<std::pair<LockType, Page *>> &deque) -> LeafPage *;
 
-  auto ProcessNodeByStrategy(BPlusTreePage *node, std::deque<std::pair<LockType, Page *>> &deque,
-                             LockType strategy, SafeType safe_type, Transaction *txn) -> BPlusTreePage *;
+  auto ProcessNodeByStrategy(BPlusTreePage *node, std::deque<std::pair<LockType, Page *>> &deque, LockType strategy,
+                             SafeType safe_type, Transaction *txn) -> BPlusTreePage *;
 
   // member variable
 

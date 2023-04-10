@@ -1,7 +1,6 @@
 /**
  * index_iterator.cpp
  */
-#include <cassert>
 
 #include "storage/index/index_iterator.h"
 
@@ -78,7 +77,6 @@ auto INDEXITERATOR_TYPE::operator!=(const IndexIterator &itr) const -> bool {
   }
   return leaf_->GetPageId() != itr.leaf_->GetPageId() || index_ != itr.index_;
 }
-
 
 template class IndexIterator<GenericKey<4>, RID, GenericComparator<4>>;
 
