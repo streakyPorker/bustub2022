@@ -270,11 +270,7 @@ TEST(BPlusTreeTests, /*DISABLED_*/ InsertTest_lzytest2) {
     rid.Set(static_cast<int32_t>(key >> 32), value);
     index_key.SetFromInteger(key);
     tree.Insert(index_key, rid, transaction);
-    if (key >= 5) {
-      LOG_INFO("after inner here at %ld", key);
-      tree.Draw(bpm, std::to_string(key) + std::string("-largest-2.dot"));
-      tree.Print(bpm);
-    }
+    LOG_INFO("after inner here at %ld", key);
   }
 
   int i = 0;

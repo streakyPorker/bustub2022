@@ -150,7 +150,7 @@ auto BPLUSTREE_TYPE::Begin() -> INDEXITERATOR_TYPE {
   auto root = ParsePageToGeneralNode(root_page_id_, locked_pages, LockType::READ, nullptr);
   LeafPage *leaf = SeekToStart(root, locked_pages);
   ClearLockDeque(locked_pages, nullptr, false, 0);
-  return INDEXITERATOR_TYPE(leaf, buffer_pool_manager_, 0);  // holding the rlock of the leaf
+  return INDEXITERATOR_TYPE(leaf->GetPageId(), buffer_pool_manager_, 0);  // holding the rlock of the leaf
 }
 
 /*
@@ -174,7 +174,7 @@ auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE {
   if (!found && pos == leaf->GetSize()) {
     return INDEXITERATOR_TYPE();
   }
-  return INDEXITERATOR_TYPE(leaf, buffer_pool_manager_, found ? pos : pos + 1);
+  return INDEXITERATOR_TYPE(leaf->GetPageId(), buffer_pool_manager_, found ? pos : pos + 1);
 }
 
 /*
