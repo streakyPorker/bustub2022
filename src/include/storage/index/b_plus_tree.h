@@ -139,7 +139,7 @@ class BPlusTree {
 
   // protect the root_page_id_ field, not the root page
   std::shared_mutex rw_latch_;
-  std::mutex write_latch_;
+  std::mutex wlatch_;
 };
 
 }  // namespace bustub

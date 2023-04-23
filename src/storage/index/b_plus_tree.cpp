@@ -88,7 +88,7 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transaction *transaction) -> bool {
-  std::scoped_lock<std::mutex> scoped_lock(write_latch_);
+  std::scoped_lock<std::mutex> scoped_lock(wlatch_);
   rw_latch_.lock();
   // root_page_id_ will never be invalid once created
   if (root_page_id_ == INVALID_PAGE_ID) {
@@ -120,7 +120,7 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
  */
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
-  std::scoped_lock<std::mutex> scoped_lock(write_latch_);
+  std::scoped_lock<std::mutex> scoped_lock(wlatch_);
   rw_latch_.lock();
   if (IsEmpty()) {
     rw_latch_.unlock();
