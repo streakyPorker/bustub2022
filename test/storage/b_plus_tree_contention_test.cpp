@@ -69,10 +69,10 @@ bool BPlusTreeLockBenchmarkCall(size_t num_threads, int leaf_node_size, bool wit
   bpm->UnpinPage(HEADER_PAGE_ID, true);
   delete disk_manager;
   delete bpm;
-  if(with_global_mutex){
-    LOG_INFO("!!!!!!!!!!!!!!!!!!!!!!!!!!!1");
-  }else{
-    LOG_INFO("xxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+  if (with_global_mutex) {
+    LOG_INFO("with!!!");
+  } else {
+    LOG_INFO("without!!!");
   }
   return success;
 }
@@ -170,6 +170,8 @@ TEST(BPlusTreeTest, /*DISABLED_*/ BPlusTreeContentionBenchmark2) {  // NOLINT
     ASSERT_TRUE(BPlusTreeLockBenchmarkCall(32, 10, enable_mutex));
     auto clock_end = std::chrono::system_clock::now();
     auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(clock_end - clock_start);
+    LOG_INFO("total time : %ld ms", dur.count());
+
     if (enable_mutex) {
       time_ms_with_mutex.push_back(dur.count());
     } else {

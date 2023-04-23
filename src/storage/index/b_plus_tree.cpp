@@ -7,6 +7,9 @@
 #include "storage/index/b_plus_tree.h"
 #include "storage/page/header_page.h"
 
+#define chrono_diff(start) \
+  (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - start).count())
+
 namespace bustub {
 INDEX_TEMPLATE_ARGUMENTS
 BPLUSTREE_TYPE::BPlusTree(std::string name, BufferPoolManager *buffer_pool_manager, const KeyComparator &comparator,
@@ -85,6 +88,7 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transaction *transaction) -> bool {
+  std::scoped_lock<std::mutex> scoped_lock(write_latch_);
   rw_latch_.lock();
   // root_page_id_ will never be invalid once created
   if (root_page_id_ == INVALID_PAGE_ID) {
@@ -95,15 +99,13 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
     UpdateRootPageId();
     buffer_pool_manager_->UnpinPage(root_page_id_, true);
   }
-
   std::deque<std::pair<LockType, Page *>> locked_pages;
-
   // optimistic mode first
   auto node = ParsePageToGeneralNode(root_page_id_, locked_pages, LockType::WRITE, transaction);
   LeafPage *leaf = SeekToLeaf(node, key, locked_pages, LockType::WRITE, SafeType::INSERT, transaction);
   BUSTUB_ASSERT(leaf != nullptr, "bpt op failed:internal search error");
-
-  return InsertIntoLeafNode(leaf, key, value, locked_pages, transaction);
+  bool rst = InsertIntoLeafNode(leaf, key, value, locked_pages, transaction);
+  return rst;
 }
 
 /*****************************************************************************
@@ -118,6 +120,7 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
  */
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
+  std::scoped_lock<std::mutex> scoped_lock(write_latch_);
   rw_latch_.lock();
   if (IsEmpty()) {
     rw_latch_.unlock();
@@ -127,7 +130,6 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
   auto node = ParsePageToGeneralNode(root_page_id_, locked_pages, LockType::WRITE, transaction);
   LeafPage *leaf = SeekToLeaf(node, key, locked_pages, LockType::WRITE, SafeType::DELETE, transaction);
   BUSTUB_ASSERT(leaf != nullptr, "bpt op failed:internal search error");
-
   DeleteFromLeafNode(leaf, key, locked_pages, transaction);
 }
 
