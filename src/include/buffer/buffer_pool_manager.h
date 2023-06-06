@@ -86,8 +86,6 @@ class BufferPoolManager {
 
   /** @return size of the buffer pool */
   virtual auto GetPoolSize() -> size_t = 0;
-  virtual auto GetFreeSize() -> int = 0;
-  virtual auto GetFreeSizeSep() -> std::pair<int, int> = 0;
 
  protected:
   /**

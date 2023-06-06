@@ -50,15 +50,15 @@ INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueAt(int index) const -> ValueType { return array_[index].second; }
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetValueAt(int index, const ValueType &value) { array_[index].second = value; }
-template <typename KeyType, typename ValueType, typename KeyComparator>
-auto BPlusTreeInternalPage<KeyType, ValueType, KeyComparator>::IndexOfKey(const KeyComparator &comp, const KeyType &key)
-    -> int {
+
+INDEX_TEMPLATE_ARGUMENTS
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::IndexOfKey(const KeyComparator &comp, const KeyType &key) -> int {
   int l = 1;
   int r = GetSize() - 1;
   int mid;
   int rst;
   while (l <= r) {
-    mid = (l + r) /2;
+    mid = (l + r) / 2;
     rst = comp(key, KeyAt(mid));
     if (rst < 0) {
       r = mid - 1;

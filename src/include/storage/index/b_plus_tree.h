@@ -102,7 +102,7 @@ class BPlusTree {
                               Transaction *txn) -> BPlusTreePage *;
 
   auto SeekToLeaf(BPlusTreePage *root_node, const KeyType &key, std::deque<std::pair<LockType, Page *>> &deque,
-                  LockStrategy strategy, SafeType safe_type, Transaction *txn) -> LeafPage *;
+                  LockType lock_type, SafeType safe_type, Transaction *txn) -> LeafPage *;
 
   void InsertIntoInternalNode(InternalPage *internal, const KeyType &key, const page_id_t &old_node,
                               const page_id_t &new_node, std::deque<std::pair<LockType, Page *>> &deque,
@@ -125,63 +125,8 @@ class BPlusTree {
 
   auto SeekToStart(BPlusTreePage *node, std::deque<std::pair<LockType, Page *>> &deque) -> LeafPage *;
 
-  auto SeekToEnd(BPlusTreePage *node, std::deque<std::pair<LockType, Page *>> &deque) -> LeafPage * {
-    if (node->IsLeafPage()) {
-      return reinterpret_cast<LeafPage *>(node);
-    }
-    auto *internal = reinterpret_cast<InternalPage *>(node);
-    LeafPage *leaf = nullptr;
-    while (leaf == nullptr) {
-      node = ParsePageToGeneralNode(internal->ValueAt(internal->GetSize() - 1), deque, LockType::READ, nullptr);
-      ClearLockDeque(deque, nullptr, false, 1);
-      if (node->IsLeafPage()) {
-        leaf = reinterpret_cast<LeafPage *>(node);
-      } else {
-        internal = reinterpret_cast<InternalPage *>(node);
-      }
-    }
-    return leaf;
-  };
-
-  auto ProcessNodeByStrategy(BPlusTreePage *const node, std::deque<std::pair<LockType, Page *>> &deque,
-                             LockStrategy strategy, SafeType safe_type, Transaction *txn) -> BPlusTreePage * {
-    switch (strategy) {
-      case LockStrategy::OPTIM_WRITE_LOCK:
-        if (!node->IsLeafPage()) {  // non-leaf,same as READ_LOCK
-          ClearLockDeque(deque, txn, false, 1);
-        } else {
-          if (node->IsSafe(safe_type)) {
-            // 1. upgrade the leaf latch to write mode at optim mode
-            // 2. check safe state, return nullptr(to switch lock mode) if failed
-            Page *leaf_page = deque.back().second;
-            deque.pop_back();
-            leaf_page->RUnlatch();
-            leaf_page->WLatch();
-            if (txn != nullptr) {
-              txn->AddIntoPageSet(leaf_page);
-            }
-            deque.emplace_back(LockType::WRITE, leaf_page);
-
-            // unlock all the previous rlock, start writing
-            ClearLockDeque(deque, txn, false, 1);
-          } else {  // not safe, optim write not available, release all the lock, return null to start over
-            ClearLockDeque(deque, txn, false, 0);
-            return nullptr;
-          }
-        }
-        break;
-      case LockStrategy::READ_LOCK:  // simply release prev lock
-        ClearLockDeque(deque, txn, false, 1);
-        break;
-      case LockStrategy::PESSI_WRITE_LOCK:
-        if (node->IsSafe(safe_type)) {
-          // release all prev wlock
-          ClearLockDeque(deque, txn, false, 1);
-        }  // else hold the lock
-        break;
-    }
-    return node;
-  }
+  auto ProcessNodeByStrategy(BPlusTreePage *node, std::deque<std::pair<LockType, Page *>> &deque, LockType strategy,
+                             SafeType safe_type, Transaction *txn) -> BPlusTreePage *;
 
   // member variable
 
@@ -193,7 +138,8 @@ class BPlusTree {
   int internal_max_size_;
 
   // protect the root_page_id_ field, not the root page
-  std::shared_timed_mutex rw_latch_;
+  std::shared_mutex rw_latch_;
+  std::mutex wlatch_;
 };
 
 }  // namespace bustub

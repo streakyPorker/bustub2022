@@ -1,7 +1,6 @@
 /**
  * index_iterator.cpp
  */
-#include <cassert>
 
 #include "storage/index/index_iterator.h"
 
@@ -12,26 +11,28 @@ namespace bustub {
  * set your own input parameters
  */
 INDEX_TEMPLATE_ARGUMENTS
-INDEXITERATOR_TYPE::IndexIterator() : leaf_(nullptr), index_(0){};
+INDEXITERATOR_TYPE::IndexIterator() : page_(nullptr), index_(0) {}
 
 INDEX_TEMPLATE_ARGUMENTS
-INDEXITERATOR_TYPE::IndexIterator(IndexIterator::LeafPage *leaf, BufferPoolManager *bpm, int index)
-    : leaf_(leaf), bpm_(bpm), index_(index) {
-  page_ = bpm_->FetchPage(leaf_->GetPageId());
+INDEXITERATOR_TYPE::IndexIterator(page_id_t leaf_page, BufferPoolManager *bpm, int index)
+    : bpm_(bpm), leaf_(nullptr), index_(index) {
+  page_ = bpm_->FetchPage(leaf_page);
   if (page_ != nullptr) {
-    page_->RLatch();  // test for reachability
-    bpm_->UnpinPage(page_->GetPageId(), false);
-    page_->RUnlatch();
+    page_->RLatch();
+    leaf_ = reinterpret_cast<LeafPage *>(page_->GetData());
   }
 }
 
 INDEX_TEMPLATE_ARGUMENTS
-INDEXITERATOR_TYPE::~IndexIterator(){
-
-};  // NOLINT
+INDEXITERATOR_TYPE::~IndexIterator() {
+  if (page_ != nullptr) {
+    page_->RUnlatch();
+    bpm_->UnpinPage(page_->GetPageId(), false);
+  }
+}
 
 INDEX_TEMPLATE_ARGUMENTS
-auto INDEXITERATOR_TYPE::IsEnd() -> bool { return leaf_ == nullptr; }
+auto INDEXITERATOR_TYPE::IsEnd() -> bool { return leaf_ == nullptr && leaf_ == nullptr; }
 
 INDEX_TEMPLATE_ARGUMENTS
 auto INDEXITERATOR_TYPE::operator*() -> const MappingType & {
@@ -51,13 +52,17 @@ auto INDEXITERATOR_TYPE::operator++() -> INDEXITERATOR_TYPE & {
       return *this;
     }
     Page *new_page = bpm_->FetchPage(leaf_->GetNextPageId());
-    assert(new_page->GetPageId() == leaf_->GetNextPageId());
     if (new_page != nullptr) {
       new_page->RLatch();
+      page_->RUnlatch();
       bpm_->UnpinPage(page_->GetPageId(), false);
-      new_page->RUnlatch();
       leaf_ = reinterpret_cast<LeafPage *>(new_page->GetData());
       page_ = new_page;
+    } else {
+      page_->RUnlatch();
+      bpm_->UnpinPage(page_->GetPageId(), false);
+      leaf_ = nullptr;
+      page_ = nullptr;
     }
   }
   return *this;
@@ -79,9 +84,6 @@ auto INDEXITERATOR_TYPE::operator!=(const IndexIterator &itr) const -> bool {
   }
   return leaf_->GetPageId() != itr.leaf_->GetPageId() || index_ != itr.index_;
 }
-INDEX_TEMPLATE_ARGUMENTS
-INDEXITERATOR_TYPE::IndexIterator(const IndexIterator &copy)
-    : leaf_(copy.leaf_), bpm_(copy.bpm_), page_(copy.page_), index_(copy.index_) {}
 
 template class IndexIterator<GenericKey<4>, RID, GenericComparator<4>>;
 

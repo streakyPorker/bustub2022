@@ -210,6 +210,49 @@ TEST(BPlusTreeTests, /*DISABLED_*/ InsertTest_lzytest) {
   auto *disk_manager = new DiskManagerMemory(256 << 10);
   BufferPoolManager *bpm = new BufferPoolManagerInstance(64, disk_manager);
   // create b+ tree
+  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator, 5, 20);
+  GenericKey<8> index_key;
+  RID rid;
+  // create transaction
+  auto *transaction = new Transaction(0);
+
+  // create and fetch header_page
+  page_id_t page_id;
+  auto header_page = bpm->NewPage(&page_id);
+  ASSERT_EQ(page_id, HEADER_PAGE_ID);
+  (void)header_page;
+  unsigned int max = 50000;
+  for (int64_t key = 1; key <= max; key++) {
+    int64_t value = key & 0xFFFFFFFF;
+    rid.Set(static_cast<int32_t>(key >> 32), value);
+    index_key.SetFromInteger(key);
+    LOG_INFO("process %ld", key);
+    tree.Insert(index_key, rid, transaction);
+  }
+
+  unsigned int i = 0;
+  for (auto iter = tree.Begin(); iter != tree.End() && i <= max; ++iter) {
+    auto location = (*iter).second;
+    LOG_INFO("slot %d num:%d\n", ++i, location.GetSlotNum());
+    assert(location.GetSlotNum() == i);
+  }
+
+  bpm->UnpinPage(HEADER_PAGE_ID, true);
+  delete transaction;
+  delete disk_manager;
+  delete bpm;
+  remove("test.db");
+  remove("test.log");
+}
+
+TEST(BPlusTreeTests, /*DISABLED_*/ InsertTest_lzytest2) {
+  // create KeyComparator and index schema
+  auto key_schema = ParseCreateStatement("a bigint");
+  GenericComparator<8> comparator(key_schema.get());
+
+  auto *disk_manager = new DiskManagerMemory(256 << 10);
+  BufferPoolManager *bpm = new BufferPoolManagerInstance(20, disk_manager);
+  // create b+ tree
   BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator, 2, 3);
   GenericKey<8> index_key;
   RID rid;
@@ -221,27 +264,20 @@ TEST(BPlusTreeTests, /*DISABLED_*/ InsertTest_lzytest) {
   auto header_page = bpm->NewPage(&page_id);
   ASSERT_EQ(page_id, HEADER_PAGE_ID);
   (void)header_page;
-  int max = 34;
+  int max = 100;
   for (int64_t key = 1; key <= max; key++) {
     int64_t value = key;
     rid.Set(static_cast<int32_t>(key >> 32), value);
     index_key.SetFromInteger(key);
-    auto free_size = bpm->GetFreeSizeSep();
-    if (key == max) {
-      LOG_INFO("inner here at %ld", key);
-//      tree.Draw(bpm, std::to_string(key - 1) + std::string("-largest.dot"));
-    }
-    LOG_INFO("before insert %ld, bpm size %d+%d=%d", key, free_size.first, free_size.second, bpm->GetFreeSize());
     tree.Insert(index_key, rid, transaction);
-    LOG_INFO("after insert %ld, bpm size %d+%d=%d", key, free_size.first, free_size.second, bpm->GetFreeSize());
+    LOG_INFO("after inner here at %ld", key);
   }
 
   int i = 0;
-  for (auto iter = tree.Begin(); iter != tree.End() && i < max + 10; ++iter) {
+  for (auto iter = tree.Begin(); iter != tree.End() && i <= max; ++iter) {
     auto location = (*iter).second;
     LOG_INFO("slot %d num:%d\n", ++i, location.GetSlotNum());
   }
-
   bpm->UnpinPage(HEADER_PAGE_ID, true);
   delete transaction;
   delete disk_manager;
@@ -249,4 +285,5 @@ TEST(BPlusTreeTests, /*DISABLED_*/ InsertTest_lzytest) {
   remove("test.db");
   remove("test.log");
 }
+
 }  // namespace bustub

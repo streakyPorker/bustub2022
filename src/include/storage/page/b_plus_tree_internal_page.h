@@ -48,7 +48,7 @@ class BPlusTreeInternalPage : public BPlusTreePage {
   }
 
   auto KVAt(int index) const -> const MappingType & { return array_[index]; }
-  auto IndexOfKey(const KeyComparator &comp,const KeyType&key) -> int;
+  auto IndexOfKey(const KeyComparator &comp, const KeyType &key) -> int;
 
  private:
   // Flexible array member for page data.
