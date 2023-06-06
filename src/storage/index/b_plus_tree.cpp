@@ -532,7 +532,8 @@ void BPLUSTREE_TYPE::InsertIntoInternalNode(InternalPage *internal, const KeyTyp
       new_internal->SetKVAt(j++, internal->KeyAt(i), internal->ValueAt(i));
     }
   }
-  KeyType lift_key = new_internal->KeyAt(1);
+  // KeyAt(0) only make sense here
+  KeyType lift_key = new_internal->KeyAt(0);
   internal->SetSize(lift_pos);
   new_internal->SetSize(new_internal->GetMinSize() + 1);
 

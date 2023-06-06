@@ -11,7 +11,7 @@ namespace bustub {
  * set your own input parameters
  */
 INDEX_TEMPLATE_ARGUMENTS
-INDEXITERATOR_TYPE::IndexIterator() : page_(nullptr), index_(0) {}
+INDEXITERATOR_TYPE::IndexIterator() : bpm_(nullptr), leaf_(nullptr), page_(nullptr), index_(0) {}
 
 INDEX_TEMPLATE_ARGUMENTS
 INDEXITERATOR_TYPE::IndexIterator(page_id_t leaf_page, BufferPoolManager *bpm, int index)
@@ -20,6 +20,10 @@ INDEXITERATOR_TYPE::IndexIterator(page_id_t leaf_page, BufferPoolManager *bpm, i
   if (page_ != nullptr) {
     page_->RLatch();
     leaf_ = reinterpret_cast<LeafPage *>(page_->GetData());
+  } else {
+    bpm_ = nullptr;
+    page_ = nullptr;
+    index_ = 0;
   }
 }
 
@@ -32,7 +36,7 @@ INDEXITERATOR_TYPE::~IndexIterator() {
 }
 
 INDEX_TEMPLATE_ARGUMENTS
-auto INDEXITERATOR_TYPE::IsEnd() -> bool { return leaf_ == nullptr && leaf_ == nullptr; }
+auto INDEXITERATOR_TYPE::IsEnd() -> bool { return leaf_ == nullptr; }
 
 INDEX_TEMPLATE_ARGUMENTS
 auto INDEXITERATOR_TYPE::operator*() -> const MappingType & {
@@ -47,6 +51,7 @@ auto INDEXITERATOR_TYPE::operator++() -> INDEXITERATOR_TYPE & {
   if (index_ == leaf_->GetSize()) {
     index_ = 0;
     if (leaf_->GetNextPageId() == INVALID_PAGE_ID) {
+      bpm_ = nullptr;
       page_ = nullptr;
       leaf_ = nullptr;
       return *this;
@@ -61,8 +66,10 @@ auto INDEXITERATOR_TYPE::operator++() -> INDEXITERATOR_TYPE & {
     } else {
       page_->RUnlatch();
       bpm_->UnpinPage(page_->GetPageId(), false);
+      bpm_ = nullptr;
       leaf_ = nullptr;
       page_ = nullptr;
+      index_ = 0;
     }
   }
   return *this;

@@ -89,19 +89,21 @@ TEST(BPlusTreeTests, /*DISABLED_*/ InsertTest2) {
   for (auto key : keys) {
     int64_t value = key & 0xFFFFFFFF;
     rid.Set(static_cast<int32_t>(key >> 32), value);
-    if (key == 4) {
-      value = key & 0xFFFFFFFF;
-    }
     index_key.SetFromInteger(key);
     tree.Insert(index_key, rid, transaction);
-    tree.Print(bpm);
   }
+  tree.Print(bpm);
 
   std::vector<RID> rids;
   for (auto key : keys) {
     rids.clear();
     index_key.SetFromInteger(key);
+    if(key==3){
+      LOG_INFO("here");
+    }
     tree.GetValue(index_key, &rids);
+    LOG_INFO("key:%ld, rids size:%lu",key,rids.size());
+
     EXPECT_EQ(rids.size(), 1);
 
     int64_t value = key & 0xFFFFFFFF;
@@ -160,6 +162,7 @@ TEST(BPlusTreeTests, /*DISABLED_*/ InsertTest3) {
     index_key.SetFromInteger(key);
     tree.Insert(index_key, rid, transaction);
   }
+  tree.Print(bpm);
 
   std::vector<RID> rids;
   for (auto key : keys) {
