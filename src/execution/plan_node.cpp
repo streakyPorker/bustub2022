@@ -22,7 +22,8 @@ auto SeqScanPlanNode::InferScanSchema(const BoundBaseTableRef &table) -> Schema 
   return Schema(schema);
 }
 
-auto NestedLoopJoinPlanNode::InferJoinSchema(const AbstractPlanNode &left, const AbstractPlanNode &right) -> Schema {
+auto NestedLoopJoinPlanNode::InferJoinSchema(const AbstractPlanNode &left,
+                                             const AbstractPlanNode &right) -> Schema {
   std::vector<Column> schema;
   for (const auto &column : left.OutputSchema().GetColumns()) {
     schema.emplace_back(column);
@@ -33,7 +34,8 @@ auto NestedLoopJoinPlanNode::InferJoinSchema(const AbstractPlanNode &left, const
   return Schema(schema);
 }
 
-auto ProjectionPlanNode::InferProjectionSchema(const std::vector<AbstractExpressionRef> &expressions) -> Schema {
+auto ProjectionPlanNode::InferProjectionSchema(
+    const std::vector<AbstractExpressionRef> &expressions) -> Schema {
   std::vector<Column> schema;
   for (const auto &expr : expressions) {
     auto type_id = expr->GetReturnType();
@@ -47,7 +49,8 @@ auto ProjectionPlanNode::InferProjectionSchema(const std::vector<AbstractExpress
   return Schema(schema);
 }
 
-auto ProjectionPlanNode::RenameSchema(const Schema &schema, const std::vector<std::string> &col_names) -> Schema {
+auto ProjectionPlanNode::RenameSchema(const Schema &schema,
+                                      const std::vector<std::string> &col_names) -> Schema {
   std::vector<Column> output;
   if (col_names.size() != schema.GetColumnCount()) {
     throw bustub::Exception("mismatched number of columns");
@@ -67,14 +70,38 @@ auto AggregationPlanNode::InferAggSchema(const std::vector<AbstractExpressionRef
   for (const auto &column : group_bys) {
     // TODO(chi): correctly process VARCHAR column
     if (column->GetReturnType() == TypeId::VARCHAR) {
-      output.emplace_back(Column("<unnamed>", column->GetReturnType(), 128));
+      output.emplace_back(Column(column->ToString(), column->GetReturnType(), 128));
     } else {
-      output.emplace_back(Column("<unnamed>", column->GetReturnType()));
+      output.emplace_back(Column(column->ToString(), column->GetReturnType()));
     }
   }
+
+  std::string empty_str;
   for (size_t idx = 0; idx < aggregates.size(); idx++) {
+    const auto &agg_type = agg_types[idx];
+    const auto &agg_expr = aggregates[idx];
+
+    std::string name = "unknown({})";
+    switch (agg_type) {
+      case AggregationType::CountStarAggregate:
+        name = "count_star({})";
+        break;
+      case AggregationType::CountAggregate:
+        name = "count({})";
+        break;
+      case AggregationType::SumAggregate:
+        name = "sum({})";
+        break;
+      case AggregationType::MinAggregate:
+        name = "min({})";
+        break;
+      case AggregationType::MaxAggregate:
+        name = "max({})";
+        break;
+    }
+
     // TODO(chi): correctly infer agg call return type
-    output.emplace_back(Column("<unnamed>", TypeId::INTEGER));
+    output.emplace_back(Column(fmt::format(name, agg_expr->ToString()), TypeId::INTEGER));
   }
   return Schema(output);
 }
