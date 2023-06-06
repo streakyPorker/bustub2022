@@ -19,7 +19,7 @@ void IndexScanExecutor::Init() {
   index_info_ = exec_ctx_->GetCatalog()->GetIndex(plan_->index_oid_);
   table_info_ = exec_ctx_->GetCatalog()->GetTable(index_info_->table_name_);
   tree_ = dynamic_cast<BPlusTreeIndexForOneIntegerColumn *>(index_info_->index_.get());
-  index_iterator_ = std::make_unique<BPlusTreeIndexIteratorForOneIntegerColumn>(tree_->GetBeginIterator());
+//  index_iterator_ = std::make_unique<BPlusTreeIndexIteratorForOneIntegerColumn>(tree_->GetBeginIterator());
 }
 
 auto IndexScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
