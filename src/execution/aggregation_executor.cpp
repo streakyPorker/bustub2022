@@ -18,12 +18,64 @@ namespace bustub {
 
 AggregationExecutor::AggregationExecutor(ExecutorContext *exec_ctx, const AggregationPlanNode *plan,
                                          std::unique_ptr<AbstractExecutor> &&child)
-    : AbstractExecutor(exec_ctx) {}
+    : AbstractExecutor(exec_ctx),
+      plan_(plan),
+      child_(std::move(child)),
+      aht_(plan->GetAggregates(), plan->GetAggregateTypes()),
+      aht_iterator_(aht_.End()) {}
 
-void AggregationExecutor::Init() {}
+void AggregationExecutor::Init() { child_->Init(); }
 
-auto AggregationExecutor::Next(Tuple *tuple, RID *rid) -> bool { return false; }
+auto AggregationExecutor::Next(Tuple *tuple, RID *rid) -> bool {
+  if (child_ == nullptr) {
+    return false;
+  }
+  Tuple child_tuple;
+  auto child_out_schema = child_->GetOutputSchema();
+  AggregateKey aggregate_key{};
+  AggregateValue aggregate_value{};
+  while (child_->Next(&child_tuple, rid)) {
+    aggregate_key.group_bys_.clear();
+    // extract agg key
+    for (const auto &group_by_exp : plan_->group_bys_) {
+      aggregate_key.group_bys_.push_back(group_by_exp->Evaluate(&child_tuple, child_out_schema));
+    }
+    aggregate_value.aggregates_.clear();
+    for (const auto &agg_exp : plan_->aggregates_) {
+      aggregate_value.aggregates_.push_back(agg_exp->Evaluate(&child_tuple, child_out_schema));
+    }
+    aht_.InsertCombine(aggregate_key, aggregate_value);
+  }
+  // not reset, or it would be blocked at the first line
+  if (aht_iterator_ == aht_.End()) {
+    aht_iterator_ = aht_.Begin();
+  }
 
-auto AggregationExecutor::GetChildExecutor() const -> const AbstractExecutor * { return child_.get(); }
+  // group by value as first part, aggr rst as second part
+  // init to own first part
+  std::vector<Value> values;
+
+  BUSTUB_ENSURE(
+      GetOutputSchema().GetColumnCount() == plan_->group_bys_.size() + plan_->aggregates_.size(),
+      "wrong format or intention");
+  values.reserve(GetOutputSchema().GetColumnCount());
+
+  for (const auto &val : aht_iterator_.Key().group_bys_) {
+    values.push_back(val);
+  }
+  for (const auto &val : aht_iterator_.Val().aggregates_) {
+    values.push_back(val);
+  }
+  *tuple = Tuple{values, &GetOutputSchema()};
+  ++aht_iterator_;
+  if (aht_iterator_ == aht_.End()) {
+    child_.reset(nullptr);
+  }
+  return true;
+}
+
+auto AggregationExecutor::GetChildExecutor() const -> const AbstractExecutor * {
+  return child_.get();
+}
 
 }  // namespace bustub

@@ -74,10 +74,33 @@ class SimpleAggregationHashTable {
     for (uint32_t i = 0; i < agg_exprs_.size(); i++) {
       switch (agg_types_[i]) {
         case AggregationType::CountStarAggregate:
+          result->aggregates_[i].Add(ValueFactory::GetIntegerValue(1));
+          break;
         case AggregationType::CountAggregate:
+          if (result->aggregates_[i].IsNull()) {
+            result->aggregates_[i] = ValueFactory::GetIntegerValue(1);
+          } else {
+            result->aggregates_[i] = result->aggregates_[i].Add(ValueFactory::GetIntegerValue(1));
+          }
+          break;
         case AggregationType::SumAggregate:
+          if (result->aggregates_[i].IsNull()) {
+            result->aggregates_[i] = input.aggregates_[i];
+          } else {
+            result->aggregates_[i] = result->aggregates_[i].Add(input.aggregates_[i]);
+          }
+          break;
         case AggregationType::MinAggregate:
+          // this include lnull, rnull situation
+          if (input.aggregates_[i].CompareLessThan(result->aggregates_[i]) == CmpBool::CmpTrue) {
+            result->aggregates_[i] = input.aggregates_[i];
+          }
+          break;
         case AggregationType::MaxAggregate:
+          // this include lnull, rnull situation
+          if (input.aggregates_[i].CompareGreaterThan(result->aggregates_[i]) == CmpBool::CmpTrue) {
+            result->aggregates_[i] = input.aggregates_[i];
+          }
           break;
       }
     }
@@ -104,7 +127,8 @@ class SimpleAggregationHashTable {
   class Iterator {
    public:
     /** Creates an iterator for the aggregate map. */
-    explicit Iterator(std::unordered_map<AggregateKey, AggregateValue>::const_iterator iter) : iter_{iter} {}
+    explicit Iterator(std::unordered_map<AggregateKey, AggregateValue>::const_iterator iter)
+        : iter_{iter} {}
 
     /** @return The key of the iterator */
     auto Key() -> const AggregateKey & { return iter_->first; }
@@ -154,7 +178,8 @@ class AggregationExecutor : public AbstractExecutor {
    * Construct a new AggregationExecutor instance.
    * @param exec_ctx The executor context
    * @param plan The insert plan to be executed
-   * @param child_executor The child executor from which inserted tuples are pulled (may be `nullptr`)
+   * @param child_executor The child executor from which inserted tuples are pulled (may be
+   * `nullptr`)
    */
   AggregationExecutor(ExecutorContext *exec_ctx, const AggregationPlanNode *plan,
                       std::unique_ptr<AbstractExecutor> &&child);
@@ -200,9 +225,12 @@ class AggregationExecutor : public AbstractExecutor {
   const AggregationPlanNode *plan_;
   /** The child executor that produces tuples over which the aggregation is computed */
   std::unique_ptr<AbstractExecutor> child_;
+
   /** Simple aggregation hash table */
   // TODO(Student): Uncomment SimpleAggregationHashTable aht_;
+  SimpleAggregationHashTable aht_;
   /** Simple aggregation hash table iterator */
   // TODO(Student): Uncomment SimpleAggregationHashTable::Iterator aht_iterator_;
+  SimpleAggregationHashTable::Iterator aht_iterator_;
 };
 }  // namespace bustub
