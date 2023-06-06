@@ -21,24 +21,47 @@ DeleteExecutor::DeleteExecutor(ExecutorContext *exec_ctx, const DeletePlanNode *
     : AbstractExecutor(exec_ctx),
       plan_(plan),
       child_executor_(std::move(child_executor)),
-      delete_rst_schema_(std::vector{Column("rows", TypeId::INTEGER)}) {}
+      delete_rst_schema_(std::vector{Column("rows", TypeId::BIGINT)}) {}
 
-void DeleteExecutor::Init() { table_info_ = exec_ctx_->GetCatalog()->GetTable(plan_->table_oid_); }
+void DeleteExecutor::Init() {
+  child_executor_->Init();
+  table_info_ = exec_ctx_->GetCatalog()->GetTable(plan_->table_oid_);
+}
 
 auto DeleteExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
-  Tuple delete_tuple;
-  if (!child_executor_->Next(&delete_tuple, rid)) {
+  if (table_info_ == nullptr) {
+    if (deleted_rows == 0) {
+      *tuple = {std::vector{Value(TypeId::BIGINT, deleted_rows)}, &delete_rst_schema_};
+    }
     return false;
   }
-  if (!table_info_->table_->MarkDelete(*rid, exec_ctx_->GetTransaction())) {
-    return false;
+
+  Tuple delete_tuple{};
+  const auto &indices = exec_ctx_->GetCatalog()->GetTableIndexes(table_info_->name_);
+  while (true) {
+//    LOG_INFO("before find tuple");
+    if (!child_executor_->Next(&delete_tuple, rid)) {
+      break;
+    }
+//    LOG_INFO("after find tuple");
+    if (!table_info_->table_->MarkDelete(*rid, exec_ctx_->GetTransaction())) {
+      break;
+    }
+//    LOG_INFO("after mark delete");
+
+    for (IndexInfo *index_info : indices) {
+      Tuple key_tuple = delete_tuple.KeyFromTuple(table_info_->schema_, index_info->key_schema_,
+                                                  index_info->index_->GetKeyAttrs());
+      index_info->index_->DeleteEntry(key_tuple, *rid, exec_ctx_->GetTransaction());
+    }
+    deleted_rows++;
+//    LOG_INFO("after incr row");
   }
-  const auto indices = exec_ctx_->GetCatalog()->GetTableIndexes(table_info_->name_);
-  for (IndexInfo *index_info : indices) {
-    index_info->index_->DeleteEntry(delete_tuple, *rid, exec_ctx_->GetTransaction());
+  if (table_info_ != nullptr) {
+    *tuple = {std::vector{Value(TypeId::BIGINT, deleted_rows)}, &delete_rst_schema_};
+    table_info_ = nullptr;
+    return true;
   }
-  const Value delete_rst(TypeId::INTEGER, 1);
-  *tuple = {std::vector{delete_rst}, &delete_rst_schema_};
   return false;
 }
 

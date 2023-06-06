@@ -63,9 +63,11 @@ class InsertExecutor : public AbstractExecutor {
    */
   std::unique_ptr<AbstractExecutor> child_executor_;
 
-  TableInfo* table_info_{nullptr};
+  TableInfo *table_info_{nullptr};
 
-  const Schema insert_rst_schema_;
+  uint64_t inserted_rows_{0};
+
+  Schema insert_rst_schema_;
 };
 
 }  // namespace bustub

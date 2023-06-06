@@ -61,7 +61,9 @@ class DeleteExecutor : public AbstractExecutor {
   /** The child executor from which RIDs for deleted tuples are pulled */
   std::unique_ptr<AbstractExecutor> child_executor_;
 
-  TableInfo* table_info_{nullptr};
+  TableInfo *table_info_{nullptr};
+
+  uint64_t deleted_rows{0};
 
   const Schema delete_rst_schema_;
 };

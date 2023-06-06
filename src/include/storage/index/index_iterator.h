@@ -27,7 +27,7 @@ class IndexIterator {
   // you may define your own constructor based on your member variables
   IndexIterator();
   explicit IndexIterator(page_id_t leaf_page, BufferPoolManager *bpm, int index = 0);
-  DISALLOW_COPY_AND_MOVE(IndexIterator);
+//  DISALLOW_COPY_AND_MOVE(IndexIterator);
   ~IndexIterator();  // NOLINT
 
   auto IsEnd() -> bool;
