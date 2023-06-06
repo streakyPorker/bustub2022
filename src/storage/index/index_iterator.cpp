@@ -51,7 +51,7 @@ auto INDEXITERATOR_TYPE::operator++() -> INDEXITERATOR_TYPE & {
       return *this;
     }
     Page *new_page = bpm_->FetchPage(leaf_->GetNextPageId());
-    assert(new_page->GetPageId()==leaf_->GetNextPageId());
+    assert(new_page->GetPageId() == leaf_->GetNextPageId());
     if (new_page != nullptr) {
       new_page->RLatch();
       bpm_->UnpinPage(page_->GetPageId(), false);
