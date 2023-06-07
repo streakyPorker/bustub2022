@@ -20,7 +20,8 @@
 
 namespace bustub {
 
-auto Planner::PlanBinaryOp(const BoundBinaryOp &expr, const std::vector<AbstractPlanNodeRef> &children)
+auto Planner::PlanBinaryOp(const BoundBinaryOp &expr,
+                           const std::vector<AbstractPlanNodeRef> &children)
     -> AbstractExpressionRef {
   auto [_1, left] = PlanExpression(*expr.larg_, children);
   auto [_2, right] = PlanExpression(*expr.rarg_, children);
@@ -28,7 +29,8 @@ auto Planner::PlanBinaryOp(const BoundBinaryOp &expr, const std::vector<Abstract
   return GetBinaryExpressionFromFactory(op_name, std::move(left), std::move(right));
 }
 
-auto Planner::PlanColumnRef(const BoundColumnRef &expr, const std::vector<AbstractPlanNodeRef> &children)
+auto Planner::PlanColumnRef(const BoundColumnRef &expr,
+                            const std::vector<AbstractPlanNodeRef> &children)
     -> std::tuple<std::string, std::shared_ptr<ColumnValueExpression>> {
   if (children.empty()) {
     throw Exception("column ref should have at least one child");
@@ -83,18 +85,21 @@ auto Planner::PlanColumnRef(const BoundColumnRef &expr, const std::vector<Abstra
     }
     if (col_idx_left) {
       auto col_type = left_schema.GetColumn(*col_idx_left).GetType();
-      return std::make_tuple(col_name, std::make_shared<ColumnValueExpression>(0, *col_idx_left, col_type));
+      return std::make_tuple(col_name,
+                             std::make_shared<ColumnValueExpression>(0, *col_idx_left, col_type));
     }
     if (col_idx_right) {
       auto col_type = right_schema.GetColumn(*col_idx_right).GetType();
-      return std::make_tuple(col_name, std::make_shared<ColumnValueExpression>(1, *col_idx_right, col_type));
+      return std::make_tuple(col_name,
+                             std::make_shared<ColumnValueExpression>(1, *col_idx_right, col_type));
     }
     throw bustub::Exception(fmt::format("column name {} not found", col_name));
   }
   UNREACHABLE("no executor with expression has more than 2 children for now");
 }
 
-auto Planner::PlanConstant(const BoundConstant &expr, const std::vector<AbstractPlanNodeRef> &children)
+auto Planner::PlanConstant(const BoundConstant &expr,
+                           const std::vector<AbstractPlanNodeRef> &children)
     -> AbstractExpressionRef {
   return std::make_shared<ConstantValueExpression>(expr.val_);
 }
@@ -104,10 +109,12 @@ void Planner::AddAggCallToContext(BoundExpression &expr) {
     case ExpressionType::AGG_CALL: {
       auto &agg_call_expr = dynamic_cast<BoundAggCall &>(expr);
       auto agg_name = fmt::format("__pseudo_agg#{}", ctx_.aggregations_.size());
-      auto agg_call =
-          BoundAggCall(agg_name, agg_call_expr.is_distinct_, std::vector<std::unique_ptr<BoundExpression>>{});
-      // Replace the agg call in the original bound expression with a pseudo one, add agg call to the context.
-      ctx_.AddAggregation(std::make_unique<BoundAggCall>(std::exchange(agg_call_expr, std::move(agg_call))));
+      auto agg_call = BoundAggCall(agg_name, agg_call_expr.is_distinct_,
+                                   std::vector<std::unique_ptr<BoundExpression>>{});
+      // Replace the agg call in the original bound expression with a pseudo one, add agg call to
+      // the context.
+      ctx_.AddAggregation(
+          std::make_unique<BoundAggCall>(std::exchange(agg_call_expr, std::move(agg_call))));
       return;
     }
     case ExpressionType::COLUMN_REF: {
@@ -133,14 +140,17 @@ void Planner::AddAggCallToContext(BoundExpression &expr) {
   throw Exception(fmt::format("expression type {} not supported in planner yet", expr.type_));
 }
 
-auto Planner::PlanExpression(const BoundExpression &expr, const std::vector<AbstractPlanNodeRef> &children)
+auto Planner::PlanExpression(const BoundExpression &expr,
+                             const std::vector<AbstractPlanNodeRef> &children)
     -> std::tuple<std::string, AbstractExpressionRef> {
   switch (expr.type_) {
     case ExpressionType::AGG_CALL: {
       if (ctx_.next_aggregation_ >= ctx_.expr_in_agg_.size()) {
         throw bustub::Exception("unexpected agg call");
       }
-      return std::make_tuple(UNNAMED_COLUMN, std::move(ctx_.expr_in_agg_[ctx_.next_aggregation_++]));
+
+      return std::make_tuple(expr.ToString(),
+                             std::move(ctx_.expr_in_agg_[ctx_.next_aggregation_++]));
     }
     case ExpressionType::COLUMN_REF: {
       const auto &column_ref_expr = dynamic_cast<const BoundColumnRef &>(expr);
@@ -148,11 +158,11 @@ auto Planner::PlanExpression(const BoundExpression &expr, const std::vector<Abst
     }
     case ExpressionType::BINARY_OP: {
       const auto &binary_op_expr = dynamic_cast<const BoundBinaryOp &>(expr);
-      return std::make_tuple(UNNAMED_COLUMN, PlanBinaryOp(binary_op_expr, children));
+      return std::make_tuple(expr.ToString(), PlanBinaryOp(binary_op_expr, children));
     }
     case ExpressionType::CONSTANT: {
       const auto &constant_expr = dynamic_cast<const BoundConstant &>(expr);
-      return std::make_tuple(UNNAMED_COLUMN, PlanConstant(constant_expr, children));
+      return std::make_tuple("Const:" + expr.ToString(), PlanConstant(constant_expr, children));
     }
     case ExpressionType::ALIAS: {
       const auto &alias_expr = dynamic_cast<const BoundAlias &>(expr);
