@@ -149,7 +149,7 @@ auto Planner::PlanExpression(const BoundExpression &expr,
         throw bustub::Exception("unexpected agg call");
       }
 
-      return std::make_tuple(expr.ToString(),
+      return std::make_tuple("agg",
                              std::move(ctx_.expr_in_agg_[ctx_.next_aggregation_++]));
     }
     case ExpressionType::COLUMN_REF: {

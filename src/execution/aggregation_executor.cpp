@@ -32,33 +32,48 @@ auto AggregationExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   }
   Tuple child_tuple;
   auto child_out_schema = child_->GetOutputSchema();
-  AggregateKey aggregate_key{};
-  AggregateValue aggregate_value{};
   while (child_->Next(&child_tuple, rid)) {
-    aggregate_key.group_bys_.clear();
+    AggregateKey aggregate_key{};
+    AggregateValue aggregate_value{};
     // extract agg key
     for (const auto &group_by_exp : plan_->group_bys_) {
       aggregate_key.group_bys_.push_back(group_by_exp->Evaluate(&child_tuple, child_out_schema));
     }
-    aggregate_value.aggregates_.clear();
     for (const auto &agg_exp : plan_->aggregates_) {
       aggregate_value.aggregates_.push_back(agg_exp->Evaluate(&child_tuple, child_out_schema));
     }
     aht_.InsertCombine(aggregate_key, aggregate_value);
   }
-  // not reset, or it would be blocked at the first line
-  if (aht_iterator_ == aht_.End()) {
-    aht_iterator_ = aht_.Begin();
-  }
 
   // group by value as first part, aggr rst as second part
   // init to own first part
   std::vector<Value> values;
-
   BUSTUB_ENSURE(
       GetOutputSchema().GetColumnCount() == plan_->group_bys_.size() + plan_->aggregates_.size(),
       "wrong format or intention");
   values.reserve(GetOutputSchema().GetColumnCount());
+
+  // not reset, or it would be blocked at the first line
+  if (aht_iterator_ == aht_.End()) {
+    aht_iterator_ = aht_.Begin();
+    // handle empty child set
+    if (aht_iterator_ == aht_.End()) {
+      // non-empty group with empty result set, return nothing
+      if (!plan_->group_bys_.empty()) {
+        child_.reset(nullptr);
+        return false;
+      }
+      for (const auto &expr : plan_->group_bys_) {
+        values.push_back(ValueFactory::GetNullValueByType(expr->GetReturnType()));
+      }
+      for (const auto &val : plan_->agg_types_) {
+        values.push_back(aht_.GetInitAggValue(val));
+      }
+      *tuple = Tuple{values, &GetOutputSchema()};
+      child_.reset(nullptr);
+      return true;
+    }
+  }
 
   for (const auto &val : aht_iterator_.Key().group_bys_) {
     values.push_back(val);

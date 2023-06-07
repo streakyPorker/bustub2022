@@ -45,23 +45,29 @@ class SimpleAggregationHashTable {
   /** @return The initial aggregrate value for this aggregation executor */
   auto GenerateInitialAggregateValue() -> AggregateValue {
     std::vector<Value> values{};
+    values.reserve(agg_types_.size());
     for (const auto &agg_type : agg_types_) {
-      switch (agg_type) {
-        case AggregationType::CountStarAggregate:
-          // Count start starts at zero.
-          values.emplace_back(ValueFactory::GetIntegerValue(0));
-          break;
-        case AggregationType::CountAggregate:
-        case AggregationType::SumAggregate:
-        case AggregationType::MinAggregate:
-        case AggregationType::MaxAggregate:
-          // Others starts at null.
-          values.emplace_back(ValueFactory::GetNullValueByType(TypeId::INTEGER));
-          break;
-      }
+      values.emplace_back(GetInitAggValue(agg_type));
     }
     return {values};
   }
+
+  auto inline GetInitAggValue(const AggregationType &agg_type) -> Value {
+    switch (agg_type) {
+      case AggregationType::CountStarAggregate:
+        // Count start starts at zero.
+        return ValueFactory::GetIntegerValue(0);
+      case AggregationType::CountAggregate:
+      case AggregationType::SumAggregate:
+      case AggregationType::MinAggregate:
+      case AggregationType::MaxAggregate:
+      default:
+        // Others starts at null.
+        return ValueFactory::GetNullValueByType(TypeId::INTEGER);
+    }
+  }
+
+
 
   /**
    * TODO(Student)
@@ -74,31 +80,37 @@ class SimpleAggregationHashTable {
     for (uint32_t i = 0; i < agg_exprs_.size(); i++) {
       switch (agg_types_[i]) {
         case AggregationType::CountStarAggregate:
-          result->aggregates_[i].Add(ValueFactory::GetIntegerValue(1));
+          result->aggregates_[i] = result->aggregates_[i].Add(ValueFactory::GetIntegerValue(1));
           break;
         case AggregationType::CountAggregate:
-          if (result->aggregates_[i].IsNull()) {
-            result->aggregates_[i] = ValueFactory::GetIntegerValue(1);
-          } else {
-            result->aggregates_[i] = result->aggregates_[i].Add(ValueFactory::GetIntegerValue(1));
+          if (!input.aggregates_[i].IsNull()) {
+            if (result->aggregates_[i].IsNull()) {
+              result->aggregates_[i] = ValueFactory::GetIntegerValue(1);
+            } else {
+              result->aggregates_[i] = result->aggregates_[i].Add(ValueFactory::GetIntegerValue(1));
+            }
           }
           break;
         case AggregationType::SumAggregate:
-          if (result->aggregates_[i].IsNull()) {
-            result->aggregates_[i] = input.aggregates_[i];
-          } else {
-            result->aggregates_[i] = result->aggregates_[i].Add(input.aggregates_[i]);
+          if (!input.aggregates_[i].IsNull()) {
+            if (result->aggregates_[i].IsNull()) {
+              result->aggregates_[i] = input.aggregates_[i];
+            } else {
+              result->aggregates_[i] = result->aggregates_[i].Add(input.aggregates_[i]);
+            }
           }
           break;
         case AggregationType::MinAggregate:
-          // this include lnull, rnull situation
-          if (input.aggregates_[i].CompareLessThan(result->aggregates_[i]) == CmpBool::CmpTrue) {
+
+          if (result->aggregates_[i].IsNull() ||
+              input.aggregates_[i].CompareLessThan(result->aggregates_[i]) == CmpBool::CmpTrue) {
             result->aggregates_[i] = input.aggregates_[i];
           }
           break;
         case AggregationType::MaxAggregate:
           // this include lnull, rnull situation
-          if (input.aggregates_[i].CompareGreaterThan(result->aggregates_[i]) == CmpBool::CmpTrue) {
+          if (result->aggregates_[i].IsNull() ||
+              input.aggregates_[i].CompareGreaterThan(result->aggregates_[i]) == CmpBool::CmpTrue) {
             result->aggregates_[i] = input.aggregates_[i];
           }
           break;
