@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "execution/executors/aggregation_executor.h"
+#include "type/value_factory.h"
 
 namespace bustub {
 
@@ -24,25 +25,18 @@ AggregationExecutor::AggregationExecutor(ExecutorContext *exec_ctx, const Aggreg
       aht_(plan->GetAggregates(), plan->GetAggregateTypes()),
       aht_iterator_(aht_.End()) {}
 
-void AggregationExecutor::Init() { child_->Init(); }
+void AggregationExecutor::Init() {
+  child_->Init();
+}
 
 auto AggregationExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   if (child_ == nullptr) {
     return false;
   }
-  Tuple child_tuple;
+  Tuple child_tuple{};
   auto child_out_schema = child_->GetOutputSchema();
   while (child_->Next(&child_tuple, rid)) {
-    AggregateKey aggregate_key{};
-    AggregateValue aggregate_value{};
-    // extract agg key
-    for (const auto &group_by_exp : plan_->group_bys_) {
-      aggregate_key.group_bys_.push_back(group_by_exp->Evaluate(&child_tuple, child_out_schema));
-    }
-    for (const auto &agg_exp : plan_->aggregates_) {
-      aggregate_value.aggregates_.push_back(agg_exp->Evaluate(&child_tuple, child_out_schema));
-    }
-    aht_.InsertCombine(aggregate_key, aggregate_value);
+    aht_.InsertCombine(MakeAggregateKey(&child_tuple), MakeAggregateValue(&child_tuple));
   }
 
   // group by value as first part, aggr rst as second part

@@ -30,11 +30,6 @@ auto SeqScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   }
 
   BUSTUB_ENSURE(table_info_->oid_ == plan_->table_oid_, "change table oid dat seq_scan executor");
-//  LOG_INFO("table info:%s %s", table_info_->name_.c_str(), table_info_->schema_.ToString().c_str());
-//  for (auto iter = table_info_->table_->Begin(exec_ctx_->GetTransaction()); iter != table_info_->table_->End();
-//       ++iter) {
-//    LOG_INFO("table row:%s", iter->ToString(&table_info_->schema_).c_str());
-//  }
 
   if (table_iter_ == table_info_->table_->End()) {
     table_info_ = nullptr;
