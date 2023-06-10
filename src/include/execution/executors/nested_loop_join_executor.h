@@ -53,11 +53,11 @@ class NestedLoopJoinExecutor : public AbstractExecutor {
   auto GetOutputSchema() const -> const Schema & override { return plan_->OutputSchema(); };
 
  private:
-  void GenerateOutTuple(Tuple *tuple, RID *rid, JoinType join_type, bool is_match,
-                        const Tuple *left_tuple, const Tuple *right_tuple);
+  void GenerateOutTuple(Tuple *tuple, JoinType join_type, bool is_match,
+                        const Tuple *tuples);
 
-  auto CheckSideValid(JoinType join_type,const Tuple *left_tuple,
-                      const Tuple *right_tuple) -> bool;
+  auto CheckOuterTupleValid(const Tuple *outer_tuple,
+                      const Schema &outer_schema) -> bool;
 
   /** The NestedLoopJoin plan node to be executed. */
   const NestedLoopJoinPlanNode *plan_;
@@ -66,7 +66,7 @@ class NestedLoopJoinExecutor : public AbstractExecutor {
 
   std::unique_ptr<AbstractExecutor> right_child_;
 
-  size_t inner_tuple_index_{0};
+  size_t outer_tuple_index_{0};
 
   std::unique_ptr<Schema> output_schema_;
 

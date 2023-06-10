@@ -26,11 +26,13 @@ AggregationExecutor::AggregationExecutor(ExecutorContext *exec_ctx, const Aggreg
       aht_iterator_(aht_.End()) {}
 
 void AggregationExecutor::Init() {
+  atomic_store(&ended_, false);
+  aht_.Clear();
   child_->Init();
 }
 
 auto AggregationExecutor::Next(Tuple *tuple, RID *rid) -> bool {
-  if (child_ == nullptr) {
+  if (atomic_load(&ended_)) {
     return false;
   }
   Tuple child_tuple{};
@@ -40,23 +42,21 @@ auto AggregationExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   }
 
   // group by value as first part, aggr rst as second part
-  // init to own first part
   std::vector<Value> values;
-  BUSTUB_ENSURE(
-      GetOutputSchema().GetColumnCount() == plan_->group_bys_.size() + plan_->aggregates_.size(),
-      "wrong format or intention");
   values.reserve(GetOutputSchema().GetColumnCount());
 
-  // not reset, or it would be blocked at the first line
   if (aht_iterator_ == aht_.End()) {
     aht_iterator_ = aht_.Begin();
-    // handle empty child set
-    if (aht_iterator_ == aht_.End()) {
+
+    if (aht_iterator_ == aht_.End()) {  // empty child set
+
       // non-empty group with empty result set, return nothing
       if (!plan_->group_bys_.empty()) {
-        child_.reset(nullptr);
+        atomic_store(&ended_, true);
         return false;
       }
+
+      //
       for (const auto &expr : plan_->group_bys_) {
         values.push_back(ValueFactory::GetNullValueByType(expr->GetReturnType()));
       }
@@ -64,7 +64,7 @@ auto AggregationExecutor::Next(Tuple *tuple, RID *rid) -> bool {
         values.push_back(aht_.GetInitAggValue(val));
       }
       *tuple = Tuple{values, &GetOutputSchema()};
-      child_.reset(nullptr);
+      atomic_store(&ended_, true);
       return true;
     }
   }
@@ -78,7 +78,7 @@ auto AggregationExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   *tuple = Tuple{values, &GetOutputSchema()};
   ++aht_iterator_;
   if (aht_iterator_ == aht_.End()) {
-    child_.reset(nullptr);
+    atomic_store(&ended_, true);
   }
   return true;
 }

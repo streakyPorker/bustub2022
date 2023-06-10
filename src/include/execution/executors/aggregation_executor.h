@@ -67,8 +67,6 @@ class SimpleAggregationHashTable {
     }
   }
 
-
-
   /**
    * TODO(Student)
    *
@@ -237,6 +235,8 @@ class AggregationExecutor : public AbstractExecutor {
   const AggregationPlanNode *plan_;
   /** The child executor that produces tuples over which the aggregation is computed */
   std::unique_ptr<AbstractExecutor> child_;
+
+  std::atomic_bool ended_{false};
 
   /** Simple aggregation hash table */
   // TODO(Student): Uncomment SimpleAggregationHashTable aht_;
