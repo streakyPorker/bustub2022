@@ -51,8 +51,6 @@ void NestedLoopJoinExecutor::Init() {
   right_child_->Init();
 }
 
-typedef l;
-;
 auto NestedLoopJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   if (atomic_load(&ended_)) {
     return false;

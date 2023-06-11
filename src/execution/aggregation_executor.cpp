@@ -56,7 +56,7 @@ auto AggregationExecutor::Next(Tuple *tuple, RID *rid) -> bool {
         return false;
       }
 
-      //
+
       for (const auto &expr : plan_->group_bys_) {
         values.push_back(ValueFactory::GetNullValueByType(expr->GetReturnType()));
       }
