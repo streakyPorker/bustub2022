@@ -34,6 +34,13 @@ class NestIndexJoinExecutor : public AbstractExecutor {
  public:
   /**
    * Creates a new nested index join executor.
+   *
+   * <p>
+   * only when the inner table has an index on the join attr will the
+   * optimizer choose to use the NIJ
+   * </p>
+   *
+   *
    * @param exec_ctx the context that the hash join should be performed in
    * @param plan the nested index join plan node
    * @param child_executor the outer table
@@ -48,7 +55,30 @@ class NestIndexJoinExecutor : public AbstractExecutor {
   auto Next(Tuple *tuple, RID *rid) -> bool override;
 
  private:
+  void GenerateOutTuple(Tuple *tuple, JoinType join_type, bool is_match, const Tuple *tuples);
+
+  auto inline OuterTuple() -> Tuple * { return &tuples_[outer_tuple_index_]; }
+  auto inline InnerTuple() -> Tuple * { return &tuples_[outer_tuple_index_ ^ 1]; }
+
+  auto inline IterInited() -> bool{return inner_match_idx_ != BUSTUB_INT32_MAX};
+
   /** The nested index join plan node. */
   const NestedIndexJoinPlanNode *plan_;
+
+  std::unique_ptr<AbstractExecutor> outer_child_;
+
+  TableInfo *inner_table_info_{nullptr};
+  IndexInfo *inner_index_info_{nullptr};
+
+  std::atomic_bool ended_{false};
+  std::atomic_bool outer_matched_{false};
+  std::atomic_bool has_outer_tuple_{false};
+
+  Tuple tuples_[2];
+
+  std::vector<RID> inner_matches_;
+  uint32_t inner_match_idx_{BUSTUB_INT32_MAX};
+
+  size_t outer_tuple_index_{0};
 };
 }  // namespace bustub

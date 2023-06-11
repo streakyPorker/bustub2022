@@ -87,9 +87,10 @@ class NestedLoopJoinExecutor : public AbstractExecutor {
 
   size_t outer_tuple_index_{0};
 
-  std::unique_ptr<Schema> output_schema_;
+  const Schema* output_schema_;
 
   Tuple tuples_[2];
+
 
   std::atomic_bool ended_{false};
   std::atomic_bool outer_matched_{false};

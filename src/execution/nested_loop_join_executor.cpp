@@ -33,20 +33,12 @@ NestedLoopJoinExecutor::NestedLoopJoinExecutor(ExecutorContext *exec_ctx,
     throw bustub::NotImplementedException(
         fmt::format("join type {} not supported", plan->GetJoinType()));
   }
-  std::vector<Column> cols;
-  cols.reserve(plan_->GetLeftPlan()->OutputSchema().GetColumnCount() +
-               plan_->GetRightPlan()->OutputSchema().GetColumnCount());
-  for (const auto &col : plan->GetLeftPlan()->OutputSchema().GetColumns()) {
-    cols.push_back(col);
-  }
-  for (const auto &col : plan->GetRightPlan()->OutputSchema().GetColumns()) {
-    cols.push_back(col);
-  }
-  output_schema_ = std::make_unique<Schema>(cols);
+
   outer_tuple_index_ = plan_->GetJoinType() != JoinType::RIGHT ? 0 : 1;
 }
 
 void NestedLoopJoinExecutor::Init() {
+  output_schema_ = &plan_->OutputSchema();
   FreeTuples();
   left_child_->Init();
   right_child_->Init();
@@ -58,10 +50,7 @@ auto NestedLoopJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   }
   auto outer_child = outer_tuple_index_ == 0 ? left_child_.get() : right_child_.get();
   auto inner_child = outer_tuple_index_ == 1 ? left_child_.get() : right_child_.get();
-  //  const Schema &outer_schema = outer_tuple_index_ == 0 ? plan_->GetLeftPlan()->OutputSchema()
-  //                                                       : plan_->GetRightPlan()->OutputSchema();
-  //  const Schema &inner_schema = outer_tuple_index_ == 1 ? plan_->GetLeftPlan()->OutputSchema()
-  //                                                       : plan_->GetRightPlan()->OutputSchema();
+
   const auto join_type = plan_->GetJoinType();
 
   while (true) {
@@ -80,9 +69,7 @@ auto NestedLoopJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
       Value rst = plan_->Predicate().EvaluateJoin(&tuples_[0], left_child_->GetOutputSchema(),
                                                   &tuples_[1], right_child_->GetOutputSchema());
       bool is_match = !rst.IsNull() && rst.GetAs<bool>();
-      //      LOG_DEBUG("outer:%s, inner:%s, is_match:%d",
-      //      OuterTuple()->ToString(&outer_schema).c_str(),
-      //                InnerTuple()->ToString(&inner_schema).c_str(), is_match);
+
       if (is_match) {
         GenerateOutTuple(tuple, JoinType::INNER, true, tuples_);
         FreeInnerTuple();
@@ -107,7 +94,7 @@ auto NestedLoopJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
         // this means the L/R join has already built one matched rows, so
         // no  need to build an empty row
         (join_type == JoinType::OUTER || !atomic_load(&outer_matched_))) {
-      GenerateOutTuple(tuple, join_type, false, tuples_);\
+      GenerateOutTuple(tuple, join_type, false, tuples_);
       FreeOuterTuple();
       atomic_store(&has_outer_tuple_, false);
       inner_child->Init();
@@ -144,7 +131,7 @@ void NestedLoopJoinExecutor::GenerateOutTuple(Tuple *tuple, JoinType join_type, 
           ValueFactory::GetNullValueByType(right_schema->GetColumn(col_idx).GetType()));
     }
   }
-  *tuple = {values, output_schema_.get()};
+  *tuple = {values, output_schema_};
 }
 
 auto NestedLoopJoinExecutor::CheckOuterTupleValid(const Tuple *outer_tuple,
