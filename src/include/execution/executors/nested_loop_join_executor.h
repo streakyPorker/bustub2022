@@ -53,11 +53,30 @@ class NestedLoopJoinExecutor : public AbstractExecutor {
   auto GetOutputSchema() const -> const Schema & override { return plan_->OutputSchema(); };
 
  private:
-  void GenerateOutTuple(Tuple *tuple, JoinType join_type, bool is_match,
-                        const Tuple *tuples);
+  void FreeTuples() {
+    FreeTuple(0);
+    FreeTuple(1);
+  }
 
-  auto CheckOuterTupleValid(const Tuple *outer_tuple,
-                      const Schema &outer_schema) -> bool;
+  void FreeTuple(size_t idx) { tuples_[idx].~Tuple(); }
+
+  auto inline OuterTuple() -> Tuple * { return &tuples_[outer_tuple_index_]; }
+
+  auto FreeOuterTuple() -> bool {
+    FreeTuple(outer_tuple_index_);
+    return true;
+  }
+
+  auto inline InnerTuple() -> Tuple * { return &tuples_[outer_tuple_index_ ^ 1]; }
+
+  auto FreeInnerTuple() -> bool {
+    FreeTuple(outer_tuple_index_ ^ 1);
+    return true;
+  }
+
+  void GenerateOutTuple(Tuple *tuple, JoinType join_type, bool is_match, const Tuple *tuples);
+
+  auto CheckOuterTupleValid(const Tuple *outer_tuple, const Schema &outer_schema) -> bool;
 
   /** The NestedLoopJoin plan node to be executed. */
   const NestedLoopJoinPlanNode *plan_;
@@ -70,7 +89,11 @@ class NestedLoopJoinExecutor : public AbstractExecutor {
 
   std::unique_ptr<Schema> output_schema_;
 
+  Tuple tuples_[2];
+
   std::atomic_bool ended_{false};
+  std::atomic_bool outer_matched_{false};
+  std::atomic_bool has_outer_tuple_{false};
 };
 
 }  // namespace bustub
