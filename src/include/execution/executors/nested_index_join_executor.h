@@ -60,7 +60,13 @@ class NestIndexJoinExecutor : public AbstractExecutor {
   auto inline OuterTuple() -> Tuple * { return &tuples_[outer_tuple_index_]; }
   auto inline InnerTuple() -> Tuple * { return &tuples_[outer_tuple_index_ ^ 1]; }
 
-  auto inline IterInited() -> bool{return inner_match_idx_ != BUSTUB_INT32_MAX};
+  auto RescanInnerIndex(const Value &outer_value_rst) -> bool {
+    match_list_.clear();
+    Tuple scan_key{std::vector{outer_value_rst}, &inner_index_info_->key_schema_};
+    inner_index_info_->index_->ScanKey(scan_key, &match_list_, exec_ctx_->GetTransaction());
+    match_list_iter_ = match_list_.cbegin();
+    return !match_list_.empty();
+  }
 
   /** The nested index join plan node. */
   const NestedIndexJoinPlanNode *plan_;
@@ -71,13 +77,12 @@ class NestIndexJoinExecutor : public AbstractExecutor {
   IndexInfo *inner_index_info_{nullptr};
 
   std::atomic_bool ended_{false};
-  std::atomic_bool outer_matched_{false};
   std::atomic_bool has_outer_tuple_{false};
 
   Tuple tuples_[2];
 
-  std::vector<RID> inner_matches_;
-  uint32_t inner_match_idx_{BUSTUB_INT32_MAX};
+  std::vector<RID> match_list_;
+  std::vector<RID>::const_iterator match_list_iter_;
 
   size_t outer_tuple_index_{0};
 };

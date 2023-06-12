@@ -33,19 +33,18 @@ NestedLoopJoinExecutor::NestedLoopJoinExecutor(ExecutorContext *exec_ctx,
     throw bustub::NotImplementedException(
         fmt::format("join type {} not supported", plan->GetJoinType()));
   }
-
-  outer_tuple_index_ = plan_->GetJoinType() != JoinType::RIGHT ? 0 : 1;
 }
 
 void NestedLoopJoinExecutor::Init() {
+  outer_tuple_index_ = plan_->GetJoinType() != JoinType::RIGHT ? 0 : 1;
   output_schema_ = &plan_->OutputSchema();
-  FreeTuples();
+  ended_ = outer_matched_ = has_outer_tuple_ = false;
   left_child_->Init();
   right_child_->Init();
 }
 
 auto NestedLoopJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
-  if (atomic_load(&ended_)) {
+  if (ended_) {
     return false;
   }
   auto outer_child = outer_tuple_index_ == 0 ? left_child_.get() : right_child_.get();
@@ -54,55 +53,46 @@ auto NestedLoopJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   const auto join_type = plan_->GetJoinType();
 
   while (true) {
-    if (!atomic_load(&has_outer_tuple_)) {
-      atomic_store(&outer_matched_, false);
+    bool new_outer_tuple = !has_outer_tuple_;
+    if (!has_outer_tuple_) {
+//      LOG_DEBUG("yielding outer tuple");
       if (!outer_child->Next(OuterTuple(), rid)) {
-        atomic_store(&ended_, true);
+        ended_ = true;
         return false;
       }
+
+      outer_matched_ = false;
+      has_outer_tuple_ = true;
+    }
+    if (new_outer_tuple) {
+//      LOG_DEBUG("init inner child ");
+      inner_child->Init();
     }
 
-    atomic_store(&has_outer_tuple_, true);
+    if (!inner_child->Next(InnerTuple(), rid)) {
+      // reaches the end
 
-    while (inner_child->Next(InnerTuple(), rid)) {
-      // now we have left & right ready
-      Value rst = plan_->Predicate().EvaluateJoin(&tuples_[0], left_child_->GetOutputSchema(),
-                                                  &tuples_[1], right_child_->GetOutputSchema());
-      bool is_match = !rst.IsNull() && rst.GetAs<bool>();
-
-      if (is_match) {
-        GenerateOutTuple(tuple, JoinType::INNER, true, tuples_);
-        FreeInnerTuple();
-        atomic_store(&outer_matched_, true);
+      if (join_type != JoinType::INNER && !outer_matched_) {
+        outer_matched_ = has_outer_tuple_ = false;
+//        LOG_DEBUG("reach the end, yield null row");
+        GenerateOutTuple(tuple, join_type, false, tuples_);
         return true;
       }
-      switch (join_type) {
-        case JoinType::INNER:
-        case JoinType::LEFT:
-        case JoinType::RIGHT:
-          // 只有当inner完全不能匹配的时候，才会输出LEFT/RIGHT的 null 行
-          FreeInnerTuple();
-          continue;
-        case JoinType::OUTER:
-        case JoinType::INVALID:
-          assert(0);
-      }
-      assert(0);
+//      LOG_DEBUG("reach the end, start over");
+      outer_matched_ = has_outer_tuple_ = false;
+      continue;
     }
-    // now we've traversed the inner table and can't find a match, so probably build a null value
-    if (join_type != JoinType::INNER &&
-        // this means the L/R join has already built one matched rows, so
-        // no  need to build an empty row
-        (join_type == JoinType::OUTER || !atomic_load(&outer_matched_))) {
-      GenerateOutTuple(tuple, join_type, false, tuples_);
-      FreeOuterTuple();
-      atomic_store(&has_outer_tuple_, false);
-      inner_child->Init();
+
+    Value bool_rst = plan_->Predicate().EvaluateJoin(&tuples_[0], left_child_->GetOutputSchema(),
+                                                     &tuples_[1], right_child_->GetOutputSchema());
+
+    bool is_match = !bool_rst.IsNull() && bool_rst.GetAs<bool>();
+    if (is_match) {
+      GenerateOutTuple(tuple, join_type, true, tuples_);
+      outer_matched_ = true;
       return true;
     }
-    FreeOuterTuple();
-    atomic_store(&has_outer_tuple_, false);
-    inner_child->Init();
+//    LOG_DEBUG("tuple not match, go on");
   }
   assert(0);
 }
