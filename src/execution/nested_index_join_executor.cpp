@@ -97,8 +97,7 @@ auto NestIndexJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
     }
     // both of the situation would cause a Next in the outer child
     if (generate_null_result || inner_iter_ended) {
-      atomic_store(&has_outer_tuple_, false);
-      atomic_store(&outer_matched_, false);
+      has_outer_tuple_ = outer_matched_ = false;
       if (generate_null_result) {
         return true;
       }
