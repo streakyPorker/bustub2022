@@ -33,7 +33,8 @@ class SortExecutor : public AbstractExecutor {
    * @param exec_ctx The executor context
    * @param plan The sort plan to be executed
    */
-  SortExecutor(ExecutorContext *exec_ctx, const SortPlanNode *plan, std::unique_ptr<AbstractExecutor> &&child_executor);
+  SortExecutor(ExecutorContext *exec_ctx, const SortPlanNode *plan,
+               std::unique_ptr<AbstractExecutor> &&child_executor);
 
   /** Initialize the sort */
   void Init() override;
@@ -52,5 +53,13 @@ class SortExecutor : public AbstractExecutor {
  private:
   /** The sort plan node to be executed */
   const SortPlanNode *plan_;
+
+  std::unique_ptr<AbstractExecutor> child_;
+
+  std::vector<Tuple> tuples_;
+
+  std::vector<Tuple>::const_iterator rst_iter_;
+
+  std::atomic_bool inited_{false};
 };
 }  // namespace bustub
