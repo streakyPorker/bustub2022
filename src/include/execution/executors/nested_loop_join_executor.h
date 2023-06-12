@@ -53,26 +53,9 @@ class NestedLoopJoinExecutor : public AbstractExecutor {
   auto GetOutputSchema() const -> const Schema & override { return plan_->OutputSchema(); };
 
  private:
-  void FreeTuples() {
-    FreeTuple(0);
-    FreeTuple(1);
-  }
-
-  void FreeTuple(size_t idx) { tuples_[idx].~Tuple(); }
-
   auto inline OuterTuple() -> Tuple * { return &tuples_[outer_tuple_index_]; }
 
-  auto FreeOuterTuple() -> bool {
-    FreeTuple(outer_tuple_index_);
-    return true;
-  }
-
   auto inline InnerTuple() -> Tuple * { return &tuples_[outer_tuple_index_ ^ 1]; }
-
-  auto FreeInnerTuple() -> bool {
-    FreeTuple(outer_tuple_index_ ^ 1);
-    return true;
-  }
 
   void GenerateOutTuple(Tuple *tuple, JoinType join_type, bool is_match, const Tuple *tuples);
 
@@ -87,10 +70,9 @@ class NestedLoopJoinExecutor : public AbstractExecutor {
 
   size_t outer_tuple_index_{0};
 
-  const Schema* output_schema_;
+  const Schema *output_schema_;
 
   Tuple tuples_[2];
-
 
   std::atomic_bool ended_{false};
   std::atomic_bool outer_matched_{false};
