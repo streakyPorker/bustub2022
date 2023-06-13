@@ -11,6 +11,7 @@ TopNExecutor::TopNExecutor(ExecutorContext *exec_ctx, const TopNPlanNode *plan,
 
 void TopNExecutor::Init() {
   inited_ = false;
+  tuple_rids_.clear();
   topn_tuple_pq_ = std::make_unique<TopNTuplePQ>(cmp_);
   child_->Init();
 }
@@ -19,21 +20,25 @@ auto TopNExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   if (!inited_) {
     while (child_->Next(tuple, rid)) {
       topn_tuple_pq_->push(std::make_pair(*tuple, *rid));
-            while (topn_tuple_pq_->size() > plan_->GetN()) {
-              topn_tuple_pq_->pop();
-            }
+      while (topn_tuple_pq_->size() > plan_->GetN()) {
+        topn_tuple_pq_->pop();
+      }
     }
+    while (!topn_tuple_pq_->empty()) {
+      tuple_rids_.push_back(topn_tuple_pq_->top());
+      topn_tuple_pq_->pop();
+    }
+    topn_tuple_pq_.reset(nullptr);
     inited_ = true;
   }
   assert(inited_);
-  if (topn_tuple_pq_->empty()) {
+  if (tuple_rids_.empty()) {
     return false;
   }
-  const auto &rst_pair = topn_tuple_pq_->top();
-//  LOG_DEBUG("top is %s", rst_pair.first.ToString(plan_->output_schema_.get()).c_str());
+  const auto &rst_pair = tuple_rids_.back();
   *tuple = rst_pair.first;
   *rid = rst_pair.second;
-  topn_tuple_pq_->pop();
+  tuple_rids_.pop_back();
   return true;
 }
 
