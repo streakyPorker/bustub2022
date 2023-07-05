@@ -16,6 +16,7 @@ void TopNExecutor::Init() {
   child_->Init();
 }
 
+// select * from test_simple_seq_2 order by col2,col1 desc limit 15;
 auto TopNExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   if (!inited_) {
     while (child_->Next(tuple, rid)) {

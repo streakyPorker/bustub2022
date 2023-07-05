@@ -55,37 +55,45 @@ class TopNExecutor : public AbstractExecutor {
   const TopNPlanNode *plan_;
 
   template <typename _Tp>
-  struct TopNCmp : public std::binary_function<_Tp, _Tp, bool> {
-    explicit TopNCmp(const std::vector<std::pair<OrderByType, AbstractExpressionRef>> *sorters,
-                     const Schema *schema)
+  struct TopNComparator : public std::binary_function<_Tp, _Tp, bool> {
+    explicit TopNComparator(
+        const std::vector<std::pair<OrderByType, AbstractExpressionRef>> *sorters,
+        const Schema *schema)
         : sorters_(sorters), schema_(schema) {}
-    TopNCmp(const TopNCmp &other) = default;
+    TopNComparator(const TopNComparator &other) = default;
 
     const std::vector<std::pair<OrderByType, AbstractExpressionRef>> *sorters_{nullptr};
     const Schema *schema_{nullptr};
 
     auto operator()(const _Tp &__x, const _Tp &__y) const -> bool {
-      for (auto sorter = sorters_->crbegin(); sorter != sorters_->crend(); ++sorter) {
+      for (auto sorter = sorters_->cbegin(); sorter != sorters_->cend(); ++sorter) {
         const auto &type = sorter->first;
         const auto &order_by = sorter->second;
         Value v1 = order_by->Evaluate(&__x.first, *schema_);
         Value v2 = order_by->Evaluate(&__y.first, *schema_);
-        CmpBool rst =
-            type != OrderByType::DESC ? v1.CompareLessThan(v2) : v1.CompareGreaterThan(v2);
-        if (rst == CmpBool::CmpTrue) {
+        if (v2.IsNull()) {
           return true;
+        }
+        if (v1.IsNull()) {  // v2 not null
+          return false;
+        }
+
+        CmpBool stay_left =
+            type != OrderByType::DESC ? v1.CompareLessThan(v2) : v1.CompareGreaterThan(v2);
+        if (v1.CompareEquals(v2) == CmpBool::CmpFalse) {
+          return stay_left == CmpBool::CmpTrue;
         }
       }
 
-      return false;
+      return true;
     }
   };
 
   using TupleRID = std::pair<Tuple, RID>;
-  using TopNTuplePQ = std::priority_queue<TupleRID, std::vector<TupleRID>, TopNCmp<TupleRID>>;
+  using TopNTuplePQ =
+      std::priority_queue<TupleRID, std::vector<TupleRID>, TopNComparator<TupleRID>>;
 
-
-  const TopNCmp<TupleRID> cmp_;
+  const TopNComparator<TupleRID> cmp_;
   std::unique_ptr<AbstractExecutor> child_;
 
   std::vector<TupleRID> tuple_rids_;
@@ -93,5 +101,5 @@ class TopNExecutor : public AbstractExecutor {
 
   std::atomic_bool inited_{false};
 };
-template struct TopNExecutor::TopNCmp<std::pair<Tuple, RID>>;
+template struct TopNExecutor::TopNComparator<std::pair<Tuple, RID>>;
 }  // namespace bustub
