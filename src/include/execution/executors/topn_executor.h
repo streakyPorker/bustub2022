@@ -66,9 +66,9 @@ class TopNExecutor : public AbstractExecutor {
     const Schema *schema_{nullptr};
 
     auto operator()(const _Tp &__x, const _Tp &__y) const -> bool {
-      for (auto sorter = sorters_->cbegin(); sorter != sorters_->cend(); ++sorter) {
-        const auto &type = sorter->first;
-        const auto &order_by = sorter->second;
+      for (const auto & sorter : *sorters_) {
+        const auto &type = sorter.first;
+        const auto &order_by = sorter.second;
         Value v1 = order_by->Evaluate(&__x.first, *schema_);
         Value v2 = order_by->Evaluate(&__y.first, *schema_);
         if (v2.IsNull()) {
